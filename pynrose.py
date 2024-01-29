@@ -22,6 +22,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import itertools
 import math
 import random
 from enum import Enum
@@ -76,6 +77,9 @@ class Vector(object):
         if not isinstance(other, int) and not isinstance(other, float):
             raise TypeError("expecting int or float, got %s" % type(other))
         return Vector(self._x / other, self._y / other)
+
+    def __repr__(self):
+        return "Vector(%f, %f)" % (self._x, self._y)
 
 
 class Grid(object):
@@ -199,15 +203,42 @@ class StripFamily(object):
         self.pentangle = pentangle
 
     def direction(self) -> Vector:
+        """Returns a unit vector in the direction the strips from this family run"""
         return self.pentangle.unit()
 
     def offset_direction(self) -> Vector:
+        """Returns a unit vector perpendicular to the strips from this family, in the positive direction.
+
+        For example, if multiple 0 is a strip that runs vertically at x=0, and multiple 1 is a vertical strip at x=1,
+        then offset_direction will be (1, 0).
+        """
         direction = self.direction()
         # rotate the vector 90 degrees
         return Vector(direction.y, -direction.x)
 
     def strip(self, multiple: int):
         return Strip(self, multiple)
+
+    def origin(self):
+        return self.strip(0).origin()
+
+    def strips_near_point(self, point: Vector):
+        """Returns 1 or 2 strips from this family that are near the given point.
+
+        The returned strips are ones that could potentially contain the rhombus at the given point (but may not).
+        """
+        pentagrid_point = point / 2.5
+        multiple = (pentagrid_point - self.origin()).dot(self.offset_direction())
+
+        # the rhombii associated with a strip may wander away from the strip up to a max of just under 2 units in
+        # rhombus space, which is .8 units in pentagrid space
+        if abs(math.ceil(multiple) - multiple) <= .8:
+            yield self.strip(math.ceil(multiple))
+        if abs(math.floor(multiple) - multiple) <= .8:
+            yield self.strip(math.floor(multiple))
+
+    def strip_range_containing_points(self, points: List[Vector]):
+        pass
 
 
 def _det(x1, y1, x2, y2):
@@ -458,6 +489,14 @@ class Rhombus(object):
             return self.strip1, self.strip2
         return self.strip2, self.strip1
 
+    def contains_point(self, point: Vector):
+        vertices = self.vertices()
+        for i in range(0, 4):
+            val = _ccw(vertices[i], vertices[(i+1) % 4], point)
+            if val > 1e-10:
+                return False
+        return True
+
     @staticmethod
     def _cartesian_from_lattice(lattice_coords: List[int]):
         x = 0.0
@@ -525,19 +564,39 @@ class Tiling(object):
     def strip_family(self, pentangle: PentAngle):
         return self._families[pentangle.pentangle]
 
+    def rhombus_at_point(self, point: Vector):
+        """Returns the rhombus that contains the given point"""
+        pentagrid_point = point/2.5
+
+        strips: List[Strip] = []
+        # find all strips that are near enough to the point that could feasibly contain the point
+        for pentangle in PentAngle.all():
+            family = self.strip_family(pentangle)
+            strips.extend(family.strips_near_point(point))
+
+        # iterate over all the intersections between the potential strips
+        for strip, other_strip in itertools.combinations(strips, 2):
+            if strip.family == other_strip.family:
+                continue
+
+            rhombus = next(strip.rhombii(other_strip, True))
+            if rhombus.contains_point(point):
+                return rhombus
+        raise Exception("Could not find the rhombus containing the given point")
+
     def rhombii(self, grid_cell: GridCell):
         processed_rhombii = set()
-        pending_rhombii = set()
+        pending_rhombii = []
         processed_strips = set()
 
         cell_midpoint = grid_cell.midpoint()
         # every unit in pentagrid space is ~2.5 units in the penrose space
         approximate_multiple = int(cell_midpoint.x / 2.5)
         initial_strip = self.strip_family(PentAngle(0)).strip(approximate_multiple)
-        # TODO: need to determine sign
-        approximate_distance = (initial_strip.origin() - (cell_midpoint/2.5)).length
+        approximate_distance = ((cell_midpoint/2.5) - initial_strip.origin()).dot(initial_strip.family.direction())
+        initial_rhombus = initial_strip.rhombus(approximate_distance)
 
-        def keep_rhombus(rhombus: Rhombus):
+        def rhombus_in_cell(rhombus: Rhombus):
             midpoint = rhombus.midpoint
             if midpoint.x < grid_cell.origin.x or midpoint.x >= grid_cell.extent.x:
                 return False
@@ -545,25 +604,23 @@ class Tiling(object):
                 return False
             return True
 
-        initial_rhombus = initial_strip.rhombus(approximate_distance)
-        if not keep_rhombus(initial_rhombus):
+        if not rhombus_in_cell(initial_rhombus):
             raise Exception("The initial rhombus is outside the bounding box. Maybe the bounding boxes are too small?")
 
-        def visit_rhombus(rhombus: Rhombus):
+        def process_rhombus(rhombus: Rhombus):
             if rhombus in processed_rhombii:
                 # TODO: in the original code, we added the rhombus to pending_rhombii regardless. is this needed?
                 return
             processed_rhombii.add(rhombus)
             yield rhombus
-            pending_rhombii.add(rhombus)
+            pending_rhombii.append(rhombus)
 
         def continue_processing_strip(rhombus: Rhombus):
-            # +/- 5, in order to catch the case of a strip parallel with an edge that goes in and out of the grid cell.
-            # 5 should be enough for approximately 2 strips width
+            # +/- 2.5, in order to catch the case of a strip parallel with an edge that goes in and out of the grid cell.
             midpoint = rhombus.midpoint
-            if (midpoint.x < (grid_cell.origin.x - 5)) or (midpoint.x > (grid_cell.extent.x + 5)):
+            if (midpoint.x < (grid_cell.origin.x - 2.5)) or (midpoint.x > (grid_cell.extent.x + 2.5)):
                 return False
-            if (midpoint.y < (grid_cell.origin.y - 5)) or (midpoint.y > (grid_cell.extent.y + 5)):
+            if (midpoint.y < (grid_cell.origin.y - 2.5)) or (midpoint.y > (grid_cell.extent.y + 2.5)):
                 return False
             return True
 
@@ -577,8 +634,8 @@ class Tiling(object):
                 if first:
                     first = False
                     continue
-                if keep_rhombus(rhombus):
-                    yield from visit_rhombus(rhombus)
+                if rhombus_in_cell(rhombus):
+                    yield from process_rhombus(rhombus)
                 else:
                     processed_rhombii.add(rhombus)
 
@@ -590,45 +647,63 @@ class Tiling(object):
                 if first:
                     first = False
                     continue
-                if keep_rhombus(rhombus):
-                    yield from visit_rhombus(rhombus)
+                if rhombus_in_cell(rhombus):
+                    yield from process_rhombus(rhombus)
                 else:
                     processed_rhombii.add(rhombus)
 
                 if not continue_processing_strip(rhombus):
                     break
 
-        yield from visit_rhombus(initial_rhombus)
+        yield from process_rhombus(initial_rhombus)
         yield from process_strip(initial_rhombus.strip1, initial_rhombus.strip2)
         yield from process_strip(initial_rhombus.strip2, initial_rhombus.strip1)
 
         while pending_rhombii:
-            rhombus = next(iter(pending_rhombii))
-            pending_rhombii.remove(rhombus)
-
-            yield from process_strip(rhombus.strip2, rhombus.strip1)
+            pending_rhombus = pending_rhombii.pop(0)
+            yield from process_strip(pending_rhombus.strip2, pending_rhombus.strip1)
 
 
+def print_rhombus_svg(rhombus: Rhombus):
+    string = '<path'
+
+    if rhombus.type() == RhombusType.THIN:
+        string += ' class="thinRhombus"'
+    else:
+        string += ' class="thickRhombus"'
+
+    string += ' id="Rhombus (%d, %d) (%d, %d)"' % (
+        rhombus.strip1.family.pentangle.pentangle,
+        rhombus.strip1.multiple,
+        rhombus.strip2.family.pentangle.pentangle,
+        rhombus.strip2.multiple)
+
+    string += ' d="M'
+
+    for vertex in rhombus.vertices():
+        string += ' %f,%f' % (vertex.x, vertex.y)
+    string += ' z"/>'
+    print(string)
 
 
 def main():
-    tiling = Tiling(offsets=[.1, .2, .3, .35, .05])
+    tiling = Tiling(rnd=random.Random(12345))
 
-    grid = Grid(Vector(0, 0), Vector(20, 20))
+    grid = Grid(Vector(-100, -100), Vector(100, 100))
 
     max_protrusion = math.sin(math.radians(72))
 
     view_size = Vector(
-        20 + max_protrusion * 2,
-        20 + max_protrusion * 2)
+        200 + max_protrusion * 2,
+        200 + max_protrusion * 2)
 
     print('<svg width="%fmm" height="%fmm" viewBox="%f %f %f %f">' % (
         view_size.x,
         view_size.y,
-        0,
-        0,
-        view_size.x,
-        view_size.y))
+        -view_size.x/2,
+        -view_size.y/2,
+        view_size.x/2 + max_protrusion,
+        view_size.y/2 + max_protrusion))
     print('<style><![CDATA[')
     print('rect.boundingBox {')
     print('    stroke: blue;')
@@ -648,31 +723,13 @@ def main():
     print('}')
     print(']]></style>')
 
-    print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
-        0, 0, 20, 20))
-
     for rhombus in tiling.rhombii(grid.cell(0, 0)):
-        string = '<path'
+        print_rhombus_svg(rhombus)
 
-        if rhombus.type() == RhombusType.THIN:
-            string += ' class="thinRhombus"'
-        else:
-            string += ' class="thickRhombus"'
-
-        string += ' d="M'
-
-        for vertex in rhombus.vertices():
-            string += ' %f,%f' % (vertex.x, vertex.y)
-        string += ' z"/>'
-        print(string)
+    print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
+        -100, -100, 100, 100))
 
     print('</svg>')
-
-        
-        
-
-
-
 
 
 if __name__ == "__main__":

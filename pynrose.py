@@ -219,6 +219,10 @@ def _det(x1, y1, x2, y2):
     return x1 * y2 - y1 * x2
 
 
+def _ccw(p1, p2, p3):
+    return (p2.x - p1.x) * (p3.y - p1.y) - (p3.x - p1.x) * (p2.y - p1.y)
+
+
 class Strip(object):
     """Represents a single string of rhombii in de Bruijn's method"""
     def __init__(self, family: StripFamily, multiple: int):
@@ -428,6 +432,8 @@ class Rhombus(object):
 
             vertices.append(self._cartesian_from_lattice(coords))
 
+        if _ccw(vertices[0], vertices[1], vertices[2]) > 0:
+            vertices.reverse()
         return vertices
 
     @cached_property

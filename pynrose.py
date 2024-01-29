@@ -513,7 +513,7 @@ class Tiling(object):
         # it's theoretically possible that 2 of the randomly generated values below will have a sum that is an
         # integer, but in practice it shouldn't be an issue
         offset_sum = 0
-        for i in range(0, 5):
+        for i in range(0, 4):
             offsets.append(rnd.random())
             offset_sum += offsets[-1]
 

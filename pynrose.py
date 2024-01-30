@@ -21,13 +21,12 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-
 import itertools
 import math
 import random
 from enum import Enum
-from functools import total_ordering, cached_property
-from typing import Iterator, Iterable, List, Optional
+from functools import cached_property
+from typing import List, Optional, Tuple
 
 
 class Vector(object):
@@ -99,7 +98,6 @@ class Grid(object):
         return hash((self.origin, self.grid_size))
 
 
-@total_ordering
 class GridCell(object):
     def __init__(self, grid: Grid, x_multiple: int, y_multiple: int):
         self.grid = grid
@@ -112,28 +110,11 @@ class GridCell(object):
     def midpoint(self):
         return (self.origin + self.extent) / 2
 
-    def __eq__(self, other):
-        if not isinstance(other, GridCell):
-            return False
-
-        return (self.grid, self.x, self.y) == (other.grid, other.x, other.y)
-
-    def __lt__(self, other):
-        if not isinstance(other, GridCell):
-            raise TypeError("Cannot compare GridCell with %s" % type(other))
-
-        if self.origin.x < other.origin.x:
-            return True
-        elif self.origin.x > other.origin.x:
-            return False
-
-        if self.origin.y < other.origin.y:
-            return True
-
-        return False
-
-    def __hash__(self):
-        return hash((self.grid, self.x, self.y))
+    def corners(self, margin=0.0):
+        yield self.origin + Vector(-margin, -margin)
+        yield self.origin + Vector(self.extent.x + margin, -margin)
+        yield self.extent + Vector(margin, margin)
+        yield self.origin + Vector(-margin, self.extent.y + margin)
 
 
 class RhombusType(Enum):
@@ -142,13 +123,42 @@ class RhombusType(Enum):
 
 
 class PentAngle(object):
+
+    _SIN = [
+        math.sin(0),
+        math.sin(1 * 2 * math.pi / 5),
+        math.sin(2 * 2 * math.pi / 5),
+        math.sin(3 * 2 * math.pi / 5),
+        math.sin(4 * 2 * math.pi / 5)]
+
+    _INVERSE_SIN = [
+        0,
+        1/math.sin(1 * 2 * math.pi / 5),
+        1/math.sin(2 * 2 * math.pi / 5),
+        1/math.sin(3 * 2 * math.pi / 5),
+        1/math.sin(4 * 2 * math.pi / 5)]
+
+    _COS = [
+        math.cos(0),
+        math.cos(1 * 2 * math.pi / 5),
+        math.cos(2 * 2 * math.pi / 5),
+        math.cos(3 * 2 * math.pi / 5),
+        math.cos(4 * 2 * math.pi / 5)]
+
+    _INVERSE_COS = [
+        0,
+        1/math.cos(1 * 2 * math.pi / 5),
+        1/math.cos(2 * 2 * math.pi / 5),
+        1/math.cos(3 * 2 * math.pi / 5),
+        1/math.cos(4 * 2 * math.pi / 5)]
+
     def __init__(self, pentangle: int):
         self.pentangle: int = int(pentangle % 5)
 
         self.radians = self.pentangle * 2 * math.pi / 5
 
-        self._sin = math.sin(self.radians)
-        self._cos = math.cos(self.radians)
+        self._sin = PentAngle._SIN[pentangle]
+        self._cos = PentAngle._COS[pentangle]
 
     def unit(self) -> 'Vector':
         """Returns a unit vector in the direction of this PentAngle"""
@@ -158,15 +168,19 @@ class PentAngle(object):
         """Returns the sin of the angle between this pentangle and another pentangle"""
         if other is None:
             return self._sin
+        return PentAngle._SIN[(other.pentangle - self.pentangle) % 5]
 
-        return math.sin(other.radians - self.radians)
+    def inverse_sin(self, other: 'PentAngle') -> float:
+        return PentAngle._INVERSE_SIN[(other.pentangle - self.pentangle) % 5]
 
     def cos(self, other: 'PentAngle' = None) -> float:
         """Returns the cos of the angle between this pentangle and another pentangle"""
-        if other is None:
+        if not other:
             return self._cos
+        return PentAngle._COS[(other.pentangle - self.pentangle) % 5]
 
-        return math.cos(other.radians - self.radians)
+    def inverse_cos(self, other: 'PentAngle') -> float:
+        return PentAngle._INVERSE_COS[(other.pentangle - self.pentangle) % 5]
 
     def __eq__(self, other):
         if not isinstance(other, PentAngle):
@@ -176,19 +190,29 @@ class PentAngle(object):
     def __hash__(self):
         return self.pentangle
 
-    @staticmethod
-    def all() -> Iterable['PentAngle']:
-        return [
-            PentAngle(0),
-            PentAngle(1),
-            PentAngle(2),
-            PentAngle(3),
-            PentAngle(4)]
+
+class PentAngles(object):
+
+    _ALL = (
+        PentAngle(0),
+        PentAngle(1),
+        PentAngle(2),
+        PentAngle(3),
+        PentAngle(4)
+    )
 
     @staticmethod
-    def others(pent_angle: 'PentAngle') -> Iterator['PentAngle']:
+    def pentangle(pentangle: int):
+        return PentAngles._ALL[pentangle]
+
+    @staticmethod
+    def all():
+        return PentAngles._ALL
+
+    @staticmethod
+    def others(pent_angle: 'PentAngle'):
         """Yields the other 4 pentangles, excluding the given one."""
-        for other in PentAngle.all():
+        for other in PentAngles._ALL:
             if other == pent_angle:
                 continue
             yield other
@@ -237,9 +261,6 @@ class StripFamily(object):
         if abs(math.floor(multiple) - multiple) <= .8:
             yield self.strip(math.floor(multiple))
 
-    def strip_range_containing_points(self, points: List[Vector]):
-        pass
-
 
 def _det(x1, y1, x2, y2):
     """Returns the determinate of (x1, y1) and (x2, y2)
@@ -251,7 +272,34 @@ def _det(x1, y1, x2, y2):
 
 
 def _ccw(p1, p2, p3):
-    return (p2.x - p1.x) * (p3.y - p1.y) - (p3.x - p1.x) * (p2.y - p1.y)
+    value = (p2.x - p1.x) * (p3.y - p1.y) - (p3.x - p1.x) * (p2.y - p1.y)
+    if math.isclose(value, 0):
+        return 0
+    return math.copysign(1, value)
+
+
+def _intersection(p0, p1, p2, p3):
+    # see, e.g. https://mathworld.wolfram.com/Line-LineIntersection.html
+
+    denom = _det(
+        p0.x - p1.x,
+        p0.y - p1.y,
+        p2.x - p3.x,
+        p2.y - p3.y)
+
+    x_num = _det(
+        _det(p0.x, p0.y, p1.x, p1.y),
+        p0.x - p1.x,
+        _det(p2.x, p2.y, p3.x, p3.y),
+        p2.x - p3.x)
+
+    y_num = _det(
+        _det(p0.x, p0.y, p1.x, p1.y),
+        p0.y - p1.y,
+        _det(p2.x, p2.y, p3.x, p3.y),
+        p2.y - p3.y)
+
+    return Vector(x_num/denom, y_num/denom)
 
 
 class Strip(object):
@@ -260,16 +308,43 @@ class Strip(object):
         self.family = family
         self.multiple = multiple
 
-    def rhombii(self, start: 'Strip', forward: bool):
-        """Returns a generator over the rhombii for this strip, starting at the intersection with 'start'.
+    def rhombii(self, start_distance: float, forward: bool):
+        """Infinitely iterates over the rhombii in this strip.
 
-        :param start: A non-parallel strip. The rhombus representing the intersection of this strip with the given
-        start strip will be used as the starting point of the iteration
+        :param start_distance: The distance in pentagrid space from this strip's origin to start iterating
         :param forward: The direction to iterate
-        :return: An infinite generator starting at the intersection of this strip and the given starting strip, and in
-        the given direction
         """
-        return self._rhombii(start, self.intersection_distance_from_point(start), forward)
+
+        return self._rhombii(start_distance, forward)
+
+    def rhombus_at_intersection(self, other: 'Strip'):
+        if other.family == self.family:
+            raise ValueError("The strips don't intersect")
+
+        lattice_coords = [0] * 5
+        lattice_coords[self.family.pentangle.pentangle] = self.multiple
+
+        distance = self.intersection_distance_from_point(other)
+
+        for pentangle in PentAngles.others(self.family.pentangle):
+            if pentangle == other.family.pentangle:
+                lattice_coords[other.family.pentangle.pentangle] = other.multiple
+                continue
+
+            other_family = self.family.tiling.strip_family(pentangle)
+
+            initial_intersection = self.intersection_distance_from_point(other_family.strip(0))
+            delta = initial_intersection - distance
+            inverse_sin = self.family.pentangle.inverse_sin(pentangle)
+
+            if inverse_sin > 0:
+                multiple = int(math.floor(delta / inverse_sin))
+                lattice_coords[pentangle.pentangle] = multiple
+            else:
+                multiple = int(math.ceil(delta / inverse_sin))
+                lattice_coords[pentangle.pentangle] = multiple - 1
+
+        return Rhombus(self, other, tuple(lattice_coords))
 
     def rhombus(self, target_distance: float):
         """Gets the rhombus near the given distance from this strip's origin.
@@ -280,91 +355,66 @@ class Strip(object):
         closest_value = math.inf
         closest = None
 
-        # start iterating just a bit before the target distance
-        rhombii = self._rhombii(None, target_distance, True)
+        forward_rhombus = next(self._rhombii(target_distance, True))
+        backward_rhombus = next(self._rhombii(target_distance, False))
 
-        # TODO: do some logging and experiments to see how far this actually needs to go
-        # 10 should be plenty to ensure we find the closest intersections on either side of the target point
-        for rhombus in [next(rhombii) for i in range(10)]:
-            other_strip = rhombus.strip2 if rhombus.strip1 == self else rhombus.strip1
-            distance_from_target = abs(self.intersection_distance_from_point(other_strip) - target_distance)
+        for rhombus in (forward_rhombus, backward_rhombus):
+            distance_from_target = abs(self.intersection_distance_from_point(rhombus.strip2) - target_distance)
             if distance_from_target < closest_value:
                 closest_value = distance_from_target
                 closest = rhombus
+
         return closest
 
-    def _rhombii(self, start: Optional['Strip'], distance: float, forward: bool):
-        intersections = [0.0] * 5
-        intersection_multiples = [0] * 5
+    def _rhombii(self, distance: float, forward: bool):
+        intersection_tuples = []
 
-        for pentangle in PentAngle.others(self.family.pentangle):
-            if start is not None and pentangle == start.family.pentangle:
-                intersections[pentangle.pentangle] = distance
-                intersection_multiples[pentangle.pentangle] = start.multiple
-                continue
+        lattice_coords = [0]*5
+        lattice_coords[self.family.pentangle.pentangle] = self.multiple
 
+        for pentangle in PentAngles.others(self.family.pentangle):
             other = self.family.tiling.strip_family(pentangle)
 
             initial_intersection = self.intersection_distance_from_point(other.strip(0))
             delta = initial_intersection - distance
-            sin = pentangle.sin(self.family.pentangle)
-            interval = 1/sin
+            inverse_sin = self.family.pentangle.inverse_sin(pentangle)
 
-            # TODO: do we need to do the split ceil/floor thing? can we always use one or the other?
-            # also, why negative?
-            if forward:
-                if interval < 0:
-                    intersection_multiples[pentangle.pentangle] = -int(math.ceil(delta / interval))
-                else:
-                    intersection_multiples[pentangle.pentangle] = -int(math.floor(delta / interval))
+            if (forward and inverse_sin > 0) or (not forward and inverse_sin <= 0):
+                multiple = int(math.floor(delta / inverse_sin))
+                lattice_coords[pentangle.pentangle] = multiple
             else:
-                if interval < 0:
-                    intersection_multiples[pentangle.pentangle] = -int(math.floor(delta / interval))
-                else:
-                    intersection_multiples[pentangle.pentangle] = -int(math.ceil(delta / interval))
+                multiple = int(math.ceil(delta / inverse_sin))
+                lattice_coords[pentangle.pentangle] = multiple - 1
 
-            intersections[pentangle.pentangle] = (
-                self.intersection_distance_from_point(other.strip(intersection_multiples[pentangle.pentangle])))
+            intersection = initial_intersection - inverse_sin * multiple
+
+            intersection_tuples.append((pentangle, multiple, intersection))
+            intersection_tuples.sort(key=lambda val: val[2], reverse=not forward)
 
         while True:
-            closest = None
-            closest_value = math.inf if forward else -math.inf
+            closest_tuple = intersection_tuples.pop(0)
 
-            for pentangle in PentAngle.others(self.family.pentangle):
-                if ((forward and intersections[pentangle.pentangle] < closest_value) or
-                        (not forward and intersections[pentangle.pentangle] > closest_value)):
-                    closest_value = intersections[pentangle.pentangle]
-                    closest = pentangle
+            inverse_sin = self.family.pentangle.inverse_sin(closest_tuple[0])
 
-            lattice_coords = [0] * 5
-
-            for pentangle in PentAngle.all():
-                if pentangle == self.family.pentangle:
-                    lattice_coords[pentangle.pentangle] = self.multiple
-                elif pentangle == closest:
-                    lattice_coords[pentangle.pentangle] = intersection_multiples[pentangle.pentangle]
-                else:
-                    lattice_coords[pentangle.pentangle] = intersection_multiples[pentangle.pentangle]
-
-                    sin = self.family.pentangle.sin(pentangle)
-                    if (forward and sin < 0) or (not forward and sin > 0):
-                        lattice_coords[pentangle.pentangle] -= 1
-
-            closest_multiple = intersection_multiples[closest.pentangle]
-            sin = closest.sin(self.family.pentangle)
-
-            if (forward and sin < 0) or (not forward and sin > 0):
-                intersection_multiples[closest.pentangle] -= 1
+            if forward and inverse_sin < 0 or not forward and inverse_sin > 0:
+                lattice_coords[closest_tuple[0].pentangle] += 1
+                rhombus_coords = tuple(lattice_coords)
+                new_tuple = (closest_tuple[0], closest_tuple[1]+1, closest_tuple[2] - inverse_sin)
             else:
-                intersection_multiples[closest.pentangle] += 1
-
-            intersections[closest.pentangle] = self.intersection_distance_from_point(
-                self.family.tiling.strip_family(closest).strip(intersection_multiples[closest.pentangle]))
+                rhombus_coords = tuple(lattice_coords)
+                lattice_coords[closest_tuple[0].pentangle] -= 1
+                new_tuple = (closest_tuple[0], closest_tuple[1]-1, closest_tuple[2] + inverse_sin)
 
             yield Rhombus(
                 self,
-                self.family.tiling.strip_family(closest).strip(closest_multiple),
-                lattice_coords)
+                self.family.tiling.strip_family(closest_tuple[0]).strip(closest_tuple[1]),
+                rhombus_coords)
+
+            for i in range(2, -1, -1):
+                if (forward and new_tuple[2] > intersection_tuples[i][2]) or (
+                        not forward and new_tuple[2] < intersection_tuples[i][2]):
+                    intersection_tuples.insert(i+1, new_tuple)
+                    break
 
     def origin(self):
         """Gets the origin of the strip, which is an arbitrary point that lies on the strip"""
@@ -381,30 +431,7 @@ class Strip(object):
         if self.family.pentangle == other.family.pentangle:
             return None
 
-        # see, e.g. https://mathworld.wolfram.com/Line-LineIntersection.html
-
-        (p0, p1) = self.two_points()
-        (p2, p3) = other.two_points()
-
-        denom = _det(
-            p0.x - p1.x,
-            p0.y - p1.y,
-            p2.x - p3.x,
-            p2.y - p3.y)
-
-        x_num = _det(
-            _det(p0.x, p0.y, p1.x, p1.y),
-            p0.x - p1.x,
-            _det(p2.x, p2.y, p3.x, p3.y),
-            p2.x - p3.x)
-
-        y_num = _det(
-            _det(p0.x, p0.y, p1.x, p1.y),
-            p0.y - p1.y,
-            _det(p2.x, p2.y, p3.x, p3.y),
-            p2.y - p3.y)
-
-        return Vector(x_num / denom, y_num / denom)
+        return _intersection(*self.two_points(), *other.two_points())
 
     def intersection_distance_from_point(self, other: 'Strip'):
         """Gets the distance from the strip's origin to the intersection with the given strip"""
@@ -412,10 +439,6 @@ class Strip(object):
         if not intersection:
             raise ValueError("The strips don't intersect")
 
-        # TODO: probably need to check if some small distance from 0, because floating point
-        if intersection.length == 0:
-            return 0
-        
         return (intersection - self.origin()).dot(self.family.direction())
 
     def __eq__(self, other):
@@ -439,7 +462,7 @@ class Rhombus(object):
         (-1, -1),
         (-1, 0)]
 
-    def __init__(self, strip1: Strip, strip2: Strip, lattice_coords: List[int]):
+    def __init__(self, strip1: Strip, strip2: Strip, lattice_coords: Tuple[int, ...]):
         self.strip1 = strip1
         self.strip2 = strip2
         self.lattice_coords = lattice_coords
@@ -457,7 +480,7 @@ class Rhombus(object):
         for i in range(0, 4):
             vertex_offsets = Rhombus._VERTEX_OFFSETS[i]
 
-            coords = self.lattice_coords.copy()
+            coords = [*self.lattice_coords]
             coords[self.strip1.family.pentangle.pentangle] += vertex_offsets[0]
             coords[self.strip2.family.pentangle.pentangle] += vertex_offsets[1]
 
@@ -474,7 +497,7 @@ class Rhombus(object):
         for i in (0, 2):
             vertex_offsets = Rhombus._VERTEX_OFFSETS[i]
 
-            coords = self.lattice_coords.copy()
+            coords = [*self.lattice_coords]
             coords[self.strip1.family.pentangle.pentangle] += vertex_offsets[0]
             coords[self.strip2.family.pentangle.pentangle] += vertex_offsets[1]
 
@@ -502,7 +525,7 @@ class Rhombus(object):
         x = 0.0
         y = 0.0
 
-        for pentangle in PentAngle.all():
+        for pentangle in PentAngles.all():
             x += lattice_coords[pentangle.pentangle] * pentangle.cos()
             y -= lattice_coords[pentangle.pentangle] * pentangle.sin()
 
@@ -517,6 +540,9 @@ class Rhombus(object):
     def __hash__(self):
         return hash(self.ordered_strips())
 
+    def __repr__(self):
+        return "Rhombus(%s, %s)" % (self.strip1, self.strip2)
+
 
 class Tiling(object):
     """Represents a P3 penrose tiling, generated by de Bruijn's method
@@ -525,7 +551,7 @@ class Tiling(object):
     (2) http://www.ams.org/publicoutreach/feature-column/fcarc-ribbons
     """
 
-    def __init__(self, offsets: Optional[List[float]]=None, rnd: Optional[random.Random]=None):
+    def __init__(self, offsets: Optional[List[float]] = None, rnd: Optional[random.Random] = None):
         """Create a new tiling.
 
         :param offsets: A list of 5 offsets, as the offset for each strip family. These offsets must follow the
@@ -543,7 +569,7 @@ class Tiling(object):
                 rnd = random.Random()
             offsets = self._generate_offsets(rnd)
 
-        self._families = [StripFamily(self, offsets[pentangle.pentangle], pentangle) for pentangle in PentAngle.all()]
+        self._families = [StripFamily(self, offsets[pentangle.pentangle], pentangle) for pentangle in PentAngles.all()]
 
     @staticmethod
     def _generate_offsets(rnd: random.Random):
@@ -566,11 +592,9 @@ class Tiling(object):
 
     def rhombus_at_point(self, point: Vector):
         """Returns the rhombus that contains the given point"""
-        pentagrid_point = point/2.5
-
         strips: List[Strip] = []
         # find all strips that are near enough to the point that could feasibly contain the point
-        for pentangle in PentAngle.all():
+        for pentangle in PentAngles.all():
             family = self.strip_family(pentangle)
             strips.extend(family.strips_near_point(point))
 
@@ -579,89 +603,59 @@ class Tiling(object):
             if strip.family == other_strip.family:
                 continue
 
-            rhombus = next(strip.rhombii(other_strip, True))
+            rhombus = strip.rhombus_at_intersection(other_strip)
             if rhombus.contains_point(point):
                 return rhombus
         raise Exception("Could not find the rhombus containing the given point")
 
     def rhombii(self, grid_cell: GridCell):
-        processed_rhombii = set()
-        pending_rhombii = []
-        processed_strips = set()
 
-        cell_midpoint = grid_cell.midpoint()
-        # every unit in pentagrid space is ~2.5 units in the penrose space
-        approximate_multiple = int(cell_midpoint.x / 2.5)
-        initial_strip = self.strip_family(PentAngle(0)).strip(approximate_multiple)
-        approximate_distance = ((cell_midpoint/2.5) - initial_strip.origin()).dot(initial_strip.family.direction())
-        initial_rhombus = initial_strip.rhombus(approximate_distance)
+        def rhombus_in_cell(r: Rhombus):
+            midpoint = r.midpoint
+            return (grid_cell.origin.x <= midpoint.x < grid_cell.extent.x and
+                    grid_cell.origin.y <= midpoint.y < grid_cell.extent.y)
 
-        def rhombus_in_cell(rhombus: Rhombus):
-            midpoint = rhombus.midpoint
-            if midpoint.x < grid_cell.origin.x or midpoint.x >= grid_cell.extent.x:
-                return False
-            if midpoint.y < grid_cell.origin.y or midpoint.y >= grid_cell.extent.y:
-                return False
-            return True
+        grid_corners = [*grid_cell.corners(.8)]
+        for pentangle in PentAngles.others(PentAngles.pentangle(4)):
+            family = self.strip_family(pentangle)
 
-        if not rhombus_in_cell(initial_rhombus):
-            raise Exception("The initial rhombus is outside the bounding box. Maybe the bounding boxes are too small?")
+            min_multiple = math.inf
+            max_multiple = -math.inf
+            for corner in grid_corners:
+                for strip in family.strips_near_point(corner):
+                    if strip.multiple < min_multiple:
+                        min_multiple = strip.multiple
+                    if strip.multiple > max_multiple:
+                        max_multiple = strip.multiple
 
-        def process_rhombus(rhombus: Rhombus):
-            if rhombus in processed_rhombii:
-                # TODO: in the original code, we added the rhombus to pending_rhombii regardless. is this needed?
-                return
-            processed_rhombii.add(rhombus)
-            yield rhombus
-            pending_rhombii.append(rhombus)
+            for multiple in range(min_multiple, max_multiple + 1):
+                strip = family.strip(multiple)
 
-        def continue_processing_strip(rhombus: Rhombus):
-            # +/- 2.5, in order to catch the case of a strip parallel with an edge that goes in and out of the grid cell.
-            midpoint = rhombus.midpoint
-            if (midpoint.x < (grid_cell.origin.x - 2.5)) or (midpoint.x > (grid_cell.extent.x + 2.5)):
-                return False
-            if (midpoint.y < (grid_cell.origin.y - 2.5)) or (midpoint.y > (grid_cell.extent.y + 2.5)):
-                return False
-            return True
+                intersection_distances = []
+                two_points = strip.two_points()
+                for corner1, corner2 in itertools.pairwise(grid_corners + [grid_corners[0]]):
+                    if _ccw(*two_points, corner1/2.5) != _ccw(*two_points, corner2/2.5):
+                        intersection = _intersection(*two_points, corner1/2.5, corner2/2.5)
+                        intersection_distances.append(
+                            (intersection - strip.origin()).dot(strip.family.direction()))
 
-        def process_strip(strip1: Strip, strip2: Strip):
-            if strip1 in processed_strips:
-                return
-            processed_strips.add(strip1)
-
-            first = True
-            for rhombus in strip1.rhombii(strip2, True):
-                if first:
-                    first = False
+                if len(intersection_distances) != 2:
                     continue
-                if rhombus_in_cell(rhombus):
-                    yield from process_rhombus(rhombus)
-                else:
-                    processed_rhombii.add(rhombus)
 
-                if not continue_processing_strip(rhombus):
-                    break
+                if intersection_distances[0] > intersection_distances[1]:
+                    intersection_distances.reverse()
 
-            first = True
-            for rhombus in strip1.rhombii(strip2, False):
-                if first:
-                    first = False
-                    continue
-                if rhombus_in_cell(rhombus):
-                    yield from process_rhombus(rhombus)
-                else:
-                    processed_rhombii.add(rhombus)
+                stop_rhombus = strip.rhombus(intersection_distances[1])
 
-                if not continue_processing_strip(rhombus):
-                    break
+                for rhombus in strip.rhombii(intersection_distances[0], True):
+                    # since we're processing the strips in order by family, we can ignore any rhombus from
+                    # an intersection with a previous family
+                    if rhombus.strip2.family.pentangle.pentangle > strip.family.pentangle.pentangle:
+                        if rhombus_in_cell(rhombus):
+                            yield rhombus
 
-        yield from process_rhombus(initial_rhombus)
-        yield from process_strip(initial_rhombus.strip1, initial_rhombus.strip2)
-        yield from process_strip(initial_rhombus.strip2, initial_rhombus.strip1)
-
-        while pending_rhombii:
-            pending_rhombus = pending_rhombii.pop(0)
-            yield from process_strip(pending_rhombus.strip2, pending_rhombus.strip1)
+                    if rhombus == stop_rhombus:
+                        break
 
 
 def print_rhombus_svg(rhombus: Rhombus):
@@ -672,11 +666,12 @@ def print_rhombus_svg(rhombus: Rhombus):
     else:
         string += ' class="thickRhombus"'
 
-    string += ' id="Rhombus (%d, %d) (%d, %d)"' % (
+    string += ' id="Rhombus (%d, %d) (%d, %d) %s"' % (
         rhombus.strip1.family.pentangle.pentangle,
         rhombus.strip1.multiple,
         rhombus.strip2.family.pentangle.pentangle,
-        rhombus.strip2.multiple)
+        rhombus.strip2.multiple,
+        [*rhombus.lattice_coords])
 
     string += ' d="M'
 
@@ -689,21 +684,22 @@ def print_rhombus_svg(rhombus: Rhombus):
 def main():
     tiling = Tiling(rnd=random.Random(12345))
 
-    grid = Grid(Vector(-100, -100), Vector(100, 100))
+    size = 500
+    grid = Grid(Vector(.01, .01), Vector(size, size))
 
     max_protrusion = math.sin(math.radians(72))
 
     view_size = Vector(
-        200 + max_protrusion * 2,
-        200 + max_protrusion * 2)
+        size + max_protrusion * 2,
+        size + max_protrusion * 2)
 
     print('<svg width="%fmm" height="%fmm" viewBox="%f %f %f %f">' % (
         view_size.x,
         view_size.y,
-        -view_size.x/2,
-        -view_size.y/2,
-        view_size.x/2 + max_protrusion,
-        view_size.y/2 + max_protrusion))
+        -max_protrusion,
+        -max_protrusion,
+        view_size.x,
+        view_size.y))
     print('<style><![CDATA[')
     print('rect.boundingBox {')
     print('    stroke: blue;')
@@ -723,21 +719,18 @@ def main():
     print('}')
     print(']]></style>')
 
+    count = 0
     for rhombus in tiling.rhombii(grid.cell(0, 0)):
-        print_rhombus_svg(rhombus)
+        #print_rhombus_svg(rhombus)
+        count += 1
 
     print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
-        -100, -100, 100, 100))
+        0, 0, size, size))
+
+    print('<!-- %d rhombii -->' % count)
 
     print('</svg>')
 
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-        

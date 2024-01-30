@@ -20,13 +20,30 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-
+import itertools
+import math
 import random
 import unittest
-from pynrose import Tiling, Vector, Grid
+from typing import List
+
+from pynrose import Tiling, Vector, Grid, PentAngle, PentAngles, Rhombus
 
 
 class TestTiling(unittest.TestCase):
+
+    def test_rhombus_at_intersection(self):
+        tiling = Tiling(rnd=random.Random(12345))
+
+        for rhombus in tiling.rhombii(Grid(Vector(0, 0), Vector(100, 100)).cell(0, 0)):
+            intersection_rhombus = rhombus.strip1.rhombus_at_intersection(rhombus.strip2)
+            assert intersection_rhombus == rhombus
+            assert intersection_rhombus.lattice_coords == rhombus.lattice_coords
+
+    def test_sins(self):
+        fifth_angle = math.pi * 2 / 5
+
+        for p1, p2 in itertools.permutations(PentAngles.all(), 2):
+            assert math.isclose(p1.sin(p2), math.sin((p2.pentangle - p1.pentangle) * fifth_angle))
 
     def test_rhombus_contains_point(self):
         tiling = Tiling(rnd=random.Random(12345))
@@ -38,22 +55,22 @@ class TestTiling(unittest.TestCase):
         for vertex in rhombus.vertices():
             assert rhombus.contains_point(vertex)
 
-        assert not rhombus.contains_point(Vector(rhombus.midpoint.x+3, rhombus.midpoint.y))
-        assert not rhombus.contains_point(Vector(rhombus.midpoint.x-3, rhombus.midpoint.y))
-        assert not rhombus.contains_point(Vector(rhombus.midpoint.x, rhombus.midpoint.y+3))
-        assert not rhombus.contains_point(Vector(rhombus.midpoint.x, rhombus.midpoint.y-3))
+        assert not rhombus.contains_point(Vector(rhombus.midpoint.x + 3, rhombus.midpoint.y))
+        assert not rhombus.contains_point(Vector(rhombus.midpoint.x - 3, rhombus.midpoint.y))
+        assert not rhombus.contains_point(Vector(rhombus.midpoint.x, rhombus.midpoint.y + 3))
+        assert not rhombus.contains_point(Vector(rhombus.midpoint.x, rhombus.midpoint.y - 3))
 
         # a point just barely past a vertex
-        assert not rhombus.contains_point(rhombus.midpoint + (vertices[0] - rhombus.midpoint)*1.01)
+        assert not rhombus.contains_point(rhombus.midpoint + (vertices[0] - rhombus.midpoint) * 1.01)
 
-        midpoint = vertices[0] + (vertices[1] - vertices[0])/2
+        midpoint = vertices[0] + (vertices[1] - vertices[0]) / 2
         assert rhombus.contains_point(midpoint)
 
         # a point just barely past the midpoint of an edge
-        assert not rhombus.contains_point(rhombus.midpoint + (midpoint - rhombus.midpoint)*1.01)
+        assert not rhombus.contains_point(rhombus.midpoint + (midpoint - rhombus.midpoint) * 1.01)
 
         # a point just barely past the vertex
-        assert not rhombus.contains_point(vertices[0] + (vertices[0] - rhombus.midpoint)*1.01)
+        assert not rhombus.contains_point(vertices[0] + (vertices[0] - rhombus.midpoint) * 1.01)
 
     def test_rhombus_at_point(self):
         tiling = Tiling(rnd=random.Random(12345))
@@ -70,7 +87,7 @@ class TestTiling(unittest.TestCase):
             assert tiling.rhombus_at_point(rhombus.midpoint) == rhombus
 
             vertices = rhombus.vertices()
-            edge_midpoint = vertices[0] + (vertices[0] - vertices[1])/2
+            edge_midpoint = vertices[0] + (vertices[0] - vertices[1]) / 2
 
             edge_rhombus = tiling.rhombus_at_point(edge_midpoint)
             assert edge_rhombus.contains_point(edge_midpoint)
@@ -78,3 +95,132 @@ class TestTiling(unittest.TestCase):
             for vertex in rhombus.vertices():
                 rhombus = tiling.rhombus_at_point(vertex)
                 assert rhombus.contains_point(vertex)
+
+    def test_backward_forward_strip_iteration(self):
+        tiling = Tiling(rnd=random.Random(12345))
+
+        rnd = random.Random(12345)
+
+        for pentangle in PentAngles.all():
+            for _ in range(100):
+                strip = tiling.strip_family(pentangle).strip(rnd.randint(-100, 100))
+
+                rhombii: List[Rhombus] = [*itertools.islice(
+                    strip.rhombii(
+                        rnd.uniform(-100, 100),
+                        True),
+                    20)]
+
+                backwards_rhombii = [*itertools.islice(
+                    strip.rhombii(
+                        strip.intersection_distance_from_point(rhombii[-1].strip2) + 1e-9,
+                        False),
+                    20)]
+
+                backwards_rhombii.reverse()
+
+                assert rhombii == backwards_rhombii
+
+                # check that each rhombus shares 2 vertices with the next rhombus in the strip
+                for rhombus1, rhombus2 in itertools.pairwise(rhombii):
+                    shared_vertex_count = 0
+                    for rhombus1_vertex in rhombus1.vertices():
+                        for rhombus2_vertex in rhombus2.vertices():
+                            if (math.isclose(rhombus1_vertex.x, rhombus2_vertex.x) and
+                                    math.isclose(rhombus1_vertex.y, rhombus2_vertex.y)):
+                                shared_vertex_count += 1
+                    assert shared_vertex_count == 2
+
+    def test_tiling(self):
+        tiling = Tiling(rnd=random.Random(12345))
+
+        tiling_rhombii = [*tiling.rhombii(Grid(Vector(0, 0), Vector(5, 5)).cell(0, 0))]
+
+        expected_rhombii = {((2, -3), (3, 0), (0, -2, -3, 0, 1)), ((1, -1), (2, -3), (1, -1, -3, -1, 1)),
+                            ((0, 1), (1, 0), (1, 0, -3, -2, 0)), ((1, -2), (2, -2), (-1, -2, -2, 0, 1)),
+                            ((0, 1), (4, 1), (1, -1, -3, -1, 1)), ((0, 0), (4, 0), (0, -1, -2, -1, 0)),
+                            ((0, 1), (1, -1), (1, -1, -3, -1, 1)), ((1, -1), (2, -2), (0, -1, -2, -1, 0)),
+                            ((2, -1), (3, 0), (-1, -1, -1, 0, -1)), ((2, -2), (3, 0), (0, -2, -2, 0, 0)),
+                            ((0, 0), (3, 0), (0, -1, -2, 0, 0)), ((0, 0), (1, -1), (0, -1, -2, 0, 0)),
+                            ((2, -2), (3, -1), (0, -1, -2, -1, 0)), ((3, 0), (4, 0), (-1, -1, -2, 0, 0)),
+                            ((2, -2), (4, 1), (0, -2, -2, 0, 1)), ((1, 0), (2, -2), (0, 0, -2, -2, 0)),
+                            ((1, -1), (4, 1), (0, -1, -3, -1, 1)), ((1, -1), (3, 0), (0, -1, -2, 0, 0)),
+                            ((1, 0), (4, 0), (0, 0, -2, -1, 0)), ((1, 0), (3, -1), (0, 0, -2, -1, 0)),
+                            ((0, 1), (2, -2), (1, 0, -2, -2, 0)), ((0, 0), (4, 1), (0, -2, -2, 0, 1)),
+                            ((0, 0), (2, -2), (0, -2, -2, 0, 1)), ((0, 1), (3, -1), (1, -1, -3, -1, 0)),
+                            ((0, 1), (2, -3), (1, -2, -3, -1, 1)), ((3, -1), (4, 1), (1, -1, -3, -1, 1)),
+                            ((0, 0), (1, 0), (0, 0, -2, -1, -1)), ((3, 0), (4, 1), (0, -2, -3, 0, 1))}
+
+        actual_rhombii = set()
+        for rhombus in tiling_rhombii:
+            actual_rhombii.add(((
+                    rhombus.strip1.family.pentangle.pentangle,
+                    rhombus.strip1.multiple
+                ),
+                (
+                    rhombus.strip2.family.pentangle.pentangle,
+                    rhombus.strip2.multiple
+                ),
+                rhombus.lattice_coords))
+            
+        assert actual_rhombii == expected_rhombii
+
+        # move the origin just a bit, this should slightly change the rhombii included at the edges
+        tiling_rhombii = [*tiling.rhombii(Grid(Vector(.01, .01), Vector(5, 5)).cell(0, 0))]
+
+        expected_rhombii = {((2, -3), (3, 0), (0, -2, -3, 0, 1)), ((1, -1), (2, -3), (1, -1, -3, -1, 1)),
+                            ((0, 1), (1, 0), (1, 0, -3, -2, 0)), ((1, -2), (2, -2), (-1, -2, -2, 0, 1)),
+                            ((0, 1), (4, 1), (1, -1, -3, -1, 1)), ((0, 0), (4, 0), (0, -1, -2, -1, 0)),
+                            ((0, 1), (1, -1), (1, -1, -3, -1, 1)), ((1, -1), (2, -2), (0, -1, -2, -1, 0)),
+                            ((2, -2), (3, 0), (0, -2, -2, 0, 0)), ((0, 0), (3, 0), (0, -1, -2, 0, 0)),
+                            ((0, 0), (1, -1), (0, -1, -2, 0, 0)), ((2, -2), (3, -1), (0, -1, -2, -1, 0)),
+                            ((3, 0), (4, 0), (-1, -1, -2, 0, 0)), ((2, -2), (4, 1), (0, -2, -2, 0, 1)),
+                            ((1, 0), (2, -2), (0, 0, -2, -2, 0)), ((1, -1), (4, 1), (0, -1, -3, -1, 1)),
+                            ((1, -1), (3, 0), (0, -1, -2, 0, 0)), ((1, 0), (4, 0), (0, 0, -2, -1, 0)),
+                            ((1, 0), (3, -1), (0, 0, -2, -1, 0)), ((0, 1), (2, -2), (1, 0, -2, -2, 0)),
+                            ((0, 0), (4, 1), (0, -2, -2, 0, 1)), ((0, 0), (2, -2), (0, -2, -2, 0, 1)),
+                            ((0, 1), (3, -1), (1, -1, -3, -1, 0)), ((0, 1), (2, -3), (1, -2, -3, -1, 1)),
+                            ((3, -1), (4, 1), (1, -1, -3, -1, 1)), ((0, 0), (1, 0), (0, 0, -2, -1, -1)),
+                            ((3, 0), (4, 1), (0, -2, -3, 0, 1))}
+
+        actual_rhombii = set()
+        for rhombus in tiling_rhombii:
+            actual_rhombii.add(((
+                                    rhombus.strip1.family.pentangle.pentangle,
+                                    rhombus.strip1.multiple
+                                ),
+                                (
+                                    rhombus.strip2.family.pentangle.pentangle,
+                                    rhombus.strip2.multiple
+                                ),
+                                rhombus.lattice_coords))
+
+        assert actual_rhombii == expected_rhombii
+
+    def test_strip_rhombus(self):
+        tiling = Tiling(rnd=random.Random(12345))
+
+        rnd = random.Random(12345)
+
+        for pentangle in PentAngles.all():
+            for _ in range(100):
+                strip = tiling.strip_family(pentangle).strip(rnd.randint(-100, 100))
+
+                rhombii: List[Rhombus] = [*itertools.islice(
+                    strip.rhombii(
+                        rnd.uniform(-100, 100),
+                        True),
+                    20)]
+
+                for rhombus1, rhombus2 in itertools.pairwise(rhombii):
+
+                    distance1 = strip.intersection_distance_from_point(rhombus1.strip2)
+                    distance2 = strip.intersection_distance_from_point(rhombus2.strip2)
+
+                    assert strip.rhombus(distance1) == rhombus1
+                    assert strip.rhombus(distance2) == rhombus2
+                    assert strip.rhombus((distance1 + distance2)/2) in (rhombus1, rhombus2)
+                    assert strip.rhombus(distance1 + (distance2 - distance1) * .1) == rhombus1
+                    assert strip.rhombus(distance1 + (distance2 - distance1) * .9) == rhombus2
+
+

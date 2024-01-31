@@ -21,6 +21,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+import argparse
 import itertools
 import math
 import random
@@ -663,46 +664,24 @@ class Tiling(object):
                         break
 
 
-def print_rhombus_svg(rhombus: Rhombus):
-    string = '<path'
+def generate_svg(
+        tiling: Tiling,
+        grid: Grid,
+        grid_count_x: int, grid_count_y: int,
+        grid_spacing_x: float, grid_spacing_y: float):
 
-    if rhombus.type() == RhombusType.THIN:
-        string += ' class="thinRhombus"'
-    else:
-        string += ' class="thickRhombus"'
-
-    string += ' id="Rhombus (%d, %d) (%d, %d) %s"' % (
-        rhombus.strip1.family.pentangle.pentangle,
-        rhombus.strip1.multiple,
-        rhombus.strip2.family.pentangle.pentangle,
-        rhombus.strip2.multiple,
-        [*rhombus.lattice_coords])
-
-    string += ' d="M'
-
-    for vertex in rhombus.vertices():
-        string += ' %f,%f' % (vertex.x, vertex.y)
-    string += ' z"/>'
-    print(string)
-
-
-def main():
-    tiling = Tiling(rnd=random.Random(12345))
-
-    size = 500
-    grid = Grid(Vector(.01, .01), Vector(size, size))
-
+    # the maximum amount a tile can stick out of the bounding box. Basically, half of a thin rhombus
     max_protrusion = math.sin(math.radians(72))
 
     view_size = Vector(
-        size + max_protrusion * 2,
-        size + max_protrusion * 2)
+        grid.grid_size.x * grid_count_x + ((grid_count_x - 1) * grid_spacing_x) + max_protrusion * 2,
+        grid.grid_size.y * grid_count_y + ((grid_count_y - 1) * grid_spacing_y) + max_protrusion * 2)
 
     print('<svg width="%fmm" height="%fmm" viewBox="%f %f %f %f">' % (
         view_size.x,
         view_size.y,
-        -max_protrusion,
-        -max_protrusion,
+        grid.origin.x - max_protrusion,
+        grid.origin.y - max_protrusion,
         view_size.x,
         view_size.y))
     print('<style><![CDATA[')
@@ -724,17 +703,82 @@ def main():
     print('}')
     print(']]></style>')
 
-    count = 0
-    for rhombus in tiling.rhombii(grid.cell(0, 0)):
-        #print_rhombus_svg(rhombus)
-        count += 1
+    for grid_x in range(grid_count_x):
+        for grid_y in range(grid_count_y):
+            offset = Vector(grid_x * grid_spacing_x, grid_y * grid_spacing_y)
 
-    print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
-        0, 0, size, size))
+            for rhombus in tiling.rhombii(grid.cell(grid_x, grid_y)):
+                string = '<path'
 
-    print('<!-- %d rhombii -->' % count)
+                if rhombus.type() == RhombusType.THIN:
+                    string += ' class="thinRhombus"'
+                else:
+                    string += ' class="thickRhombus"'
 
+                string += ' id="Rhombus (%d, %d) (%d, %d) %s"' % (
+                    rhombus.strip1.family.pentangle.pentangle,
+                    rhombus.strip1.multiple,
+                    rhombus.strip2.family.pentangle.pentangle,
+                    rhombus.strip2.multiple,
+                    [*rhombus.lattice_coords])
+
+                string += ' d="M'
+
+                for vertex in rhombus.vertices():
+                    vertex = vertex + offset
+                    string += ' %f,%f' % (vertex.x, vertex.y)
+                string += ' z"/>'
+                print(string)
+
+            print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
+                grid.origin.x + grid_x * grid.grid_size.x + grid_spacing_x * grid_x,
+                grid.origin.y + grid_y * grid.grid_size.y + grid_spacing_y * grid_y,
+                grid.grid_size.x,
+                grid.grid_size.y))
     print('</svg>')
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generates a penrose P3 tiling.",
+        add_help=False)
+
+    parser.add_argument(
+        "-?", "--help",
+        action='help',
+        help='show this help message and exit')
+
+    output_group = parser.add_argument_group("Output").add_mutually_exclusive_group()
+    output_group.add_argument("--svg", default=True,
+                              help="(Default)Generate a dual-color SVG with each rhombus as a separate path.")
+
+    grid_group = parser.add_argument_group("Grid")
+    grid_group.add_argument("--minX", "-x", type=float, default=0.0, help="The minimum x value of the bounding grid.")
+    grid_group.add_argument("--minY", "-y", type=float, default=0.0, help="The minimum y value of the bounding grid.")
+    grid_group.add_argument("--width", "-w", type=float, default=20.0, help="The width of each grid cell.")
+    grid_group.add_argument("--height", "-h", type=float, default=20.0, help="The height of each grid cell.")
+    grid_group.add_argument("--count_x", "-cx", type=int, default=1,
+                            help="The number of grids to generate in the x axis.")
+    grid_group.add_argument("--count_y", "-cy", type=int, default=1,
+                            help="The number of grids to generate in the y axis.")
+    grid_group.add_argument("--grid_spacing_x", "-gx", type=float, default=2,
+                            help="How much space to leave between each grid, in the x axis")
+    grid_group.add_argument("--grid_spacing_y", "-gy", type=float, default=2,
+                            help="How much space to leave between each grid, in the y axis")
+
+    parser.add_argument("--seed", "-s", type=int, help="The random seed to use to generate the tiling.")
+
+    args = parser.parse_args()
+
+    if hasattr(args, "help"):
+        parser.print_help()
+        return
+
+    tiling = Tiling(rnd=random.Random(args.seed))
+    grid = Grid(Vector(args.minX, args.minY), Vector(args.width, args.height))
+
+    if hasattr(args, "svg"):
+        generate_svg(tiling, grid, args.count_x, args.count_y, args.grid_spacing_x, args.grid_spacing_y)
 
 
 if __name__ == "__main__":

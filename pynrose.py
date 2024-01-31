@@ -693,7 +693,8 @@ def generate_svg(
         tiling: Tiling,
         grid: Grid,
         grid_count_x: int, grid_count_y: int,
-        grid_spacing_x: float, grid_spacing_y: float):
+        grid_spacing_x: float, grid_spacing_y: float,
+        add_grid_box: bool):
 
     # the maximum amount a tile can stick out of the bounding box. Basically, half of a thin rhombus
     max_protrusion = math.sin(math.radians(72))
@@ -755,11 +756,12 @@ def generate_svg(
                 string += ' z"/>'
                 print(string)
 
-            print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
-                grid.origin.x + grid_x * grid.grid_size.x + grid_spacing_x * grid_x,
-                grid.origin.y + grid_y * grid.grid_size.y + grid_spacing_y * grid_y,
-                grid.grid_size.x,
-                grid.grid_size.y))
+            if add_grid_box:
+                print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
+                    grid.origin.x + grid_x * grid.grid_size.x + grid_spacing_x * grid_x,
+                    grid.origin.y + grid_y * grid.grid_size.y + grid_spacing_y * grid_y,
+                    grid.grid_size.x,
+                    grid.grid_size.y))
     print('</svg>')
 
 
@@ -767,7 +769,8 @@ def generate_svgline(
         tiling: Tiling,
         grid: Grid,
         grid_count_x: int, grid_count_y: int,
-        grid_spacing_x: float, grid_spacing_y: float):
+        grid_spacing_x: float, grid_spacing_y: float,
+        add_grid_box: bool):
 
     # the maximum amount a tile can stick out of the bounding box. Basically, half of a thin rhombus
     max_protrusion = math.sin(math.radians(72))
@@ -814,11 +817,12 @@ def generate_svgline(
                 string += ' z"/>'
                 print(string)
 
-            print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
-                grid.origin.x + grid_x * grid.grid_size.x + grid_spacing_x * grid_x,
-                grid.origin.y + grid_y * grid.grid_size.y + grid_spacing_y * grid_y,
-                grid.grid_size.x,
-                grid.grid_size.y))
+            if add_grid_box:
+                print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
+                    grid.origin.x + grid_x * grid.grid_size.x + grid_spacing_x * grid_x,
+                    grid.origin.y + grid_y * grid.grid_size.y + grid_spacing_y * grid_y,
+                    grid.grid_size.x,
+                    grid.grid_size.y))
     print('</svg>')
 
 
@@ -848,9 +852,11 @@ def main():
     grid_group.add_argument("--count_y", "-cy", type=int, default=1,
                             help="The number of grids to generate in the y axis.")
     grid_group.add_argument("--grid_spacing_x", "-gx", type=float, default=2,
-                            help="How much space to leave between each grid, in the x axis")
+                            help="How much space to leave between each grid, in the x axis.")
     grid_group.add_argument("--grid_spacing_y", "-gy", type=float, default=2,
-                            help="How much space to leave between each grid, in the y axis")
+                            help="How much space to leave between each grid, in the y axis.")
+    grid_group.add_argument("--add_grid_box", "-gb", action='store_true',
+                            help="Add the grid bounding boxes to the svg.")
 
     parser.add_argument("--seed", "-s", type=int, help="The random seed to use to generate the tiling.")
 
@@ -863,10 +869,12 @@ def main():
     tiling = Tiling(rnd=random.Random(args.seed))
     grid = Grid(Vector(args.minX, args.minY), Vector(args.width, args.height))
 
-    if hasattr(args, "svgline"):
-        generate_svgline(tiling, grid, args.count_x, args.count_y, args.grid_spacing_x, args.grid_spacing_y)
+    if args.svgline:
+        generate_svgline(
+            tiling, grid, args.count_x, args.count_y, args.grid_spacing_x, args.grid_spacing_y, args.add_grid_box)
     else:
-        generate_svg(tiling, grid, args.count_x, args.count_y, args.grid_spacing_x, args.grid_spacing_y)
+        generate_svg(
+            tiling, grid, args.count_x, args.count_y, args.grid_spacing_x, args.grid_spacing_y, args.add_grid_box)
 
 
 if __name__ == "__main__":

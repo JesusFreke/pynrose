@@ -293,3 +293,20 @@ class TestTiling(unittest.TestCase):
                 for rhombus in rhombii:
                     assert rhombus not in previous_cell_rhombii
                 previous_cell_rhombii = rhombii
+
+    def test_no_duplicated_rhombii_in_grid_cell(self):
+        """Test that there are no duplicated rhombii within a given grid cell."""
+
+        tiling = Tiling(rnd=random.Random(12345))
+        rnd = random.Random(12345)
+
+        for _ in range(100):
+            grid = Grid(
+                Vector(rnd.uniform(-100, 100), rnd.uniform(-100, 100)),
+                Vector(10, 10))
+
+            rhombii = set()
+
+            for rhombus in tiling.rhombii(grid.cell(0, 0)):
+                assert rhombus not in rhombii
+                rhombii.add(rhombus)

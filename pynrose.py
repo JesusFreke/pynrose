@@ -645,7 +645,12 @@ class Tiling(object):
                 if intersection_distances[0] > intersection_distances[1]:
                     intersection_distances.reverse()
 
+                start_rhombus = strip.rhombus(intersection_distances[0])
                 stop_rhombus = strip.rhombus(intersection_distances[1])
+                if start_rhombus == stop_rhombus:
+                    if rhombus_in_cell(start_rhombus):
+                        yield start_rhombus
+                    continue
 
                 for rhombus in strip.rhombii(intersection_distances[0], True):
                     # since we're processing the strips in order by family, we can ignore any rhombus from

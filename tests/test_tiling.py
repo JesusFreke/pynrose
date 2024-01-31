@@ -22,11 +22,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 import itertools
 import math
+import multiprocessing
 import random
 import unittest
+from multiprocessing import Process
 from typing import List
 
-from pynrose import Tiling, Vector, Grid, PentAngle, PentAngles, Rhombus
+from pynrose import Tiling, Vector, Grid, PentAngles, Rhombus
 
 
 class TestTiling(unittest.TestCase):
@@ -223,4 +225,25 @@ class TestTiling(unittest.TestCase):
                     assert strip.rhombus(distance1 + (distance2 - distance1) * .1) == rhombus1
                     assert strip.rhombus(distance1 + (distance2 - distance1) * .9) == rhombus2
 
+    def test_strip_grid_cell_corner_edge_case(self):
+        """Tests an edge case where a strip intersects very closely with a grid cell corner, causing an infinite loop"""
 
+        queue = multiprocessing.Queue()
+
+        def run_test():
+            tiling = Tiling(rnd=random.Random(1234))
+            grid = Grid(Vector(0, 40), Vector(20, 20))
+            count = 0
+            for _ in tiling.rhombii(grid.cell(0, 0)):
+                count += 1
+            queue.put(count)
+
+        p = Process(target=run_test)
+        p.start()
+        p.join(timeout=5)
+        if p.exitcode is None:
+            p.kill()
+            self.fail("rhombus interation encountered an infinite loop")
+        rhombus_count = queue.get_nowait()
+        assert rhombus_count == 482
+        

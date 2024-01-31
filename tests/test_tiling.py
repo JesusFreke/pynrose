@@ -28,7 +28,7 @@ import unittest
 from multiprocessing import Process
 from typing import List
 
-from pynrose import Tiling, Vector, Grid, PentAngles, Rhombus
+from pynrose import Tiling, Vector, Grid, PentAngles, Rhombus, GridCell
 
 
 class TestTiling(unittest.TestCase):
@@ -246,4 +246,31 @@ class TestTiling(unittest.TestCase):
             self.fail("rhombus interation encountered an infinite loop")
         rhombus_count = queue.get_nowait()
         assert rhombus_count == 482
-        
+
+    def test_rhombii_at_edges(self):
+        """Test that there are no missing rhombii at the edges of a grid cell."""
+
+        tiling = Tiling(rnd=random.Random(12345))
+        rnd = random.Random(12345)
+
+        for _ in range(100):
+            inner_grid = Grid(
+                Vector(rnd.uniform(-100, 100), rnd.uniform(-100, 100)),
+                Vector(5, 5))
+
+            # make a grid cell that is bigger than inner_grid by 2.5 on all sides
+            outer_grid = Grid(
+                inner_grid.origin - Vector(2.5, 2.5),
+                inner_grid.grid_size + Vector(5, 5))
+
+            inner_grid_cell = inner_grid.cell(0, 0)
+            inner_rhombii = set(tiling.rhombii(inner_grid_cell))
+
+            def rhombus_in_cell(r: Rhombus, cell: GridCell):
+                midpoint = r.midpoint
+                return (cell.origin.x <= midpoint.x < cell.extent.x and
+                        cell.origin.y <= midpoint.y < cell.extent.y)
+
+            for outer_rhombus in tiling.rhombii(outer_grid.cell(0, 0)):
+                if rhombus_in_cell(outer_rhombus, inner_grid_cell):
+                    assert outer_rhombus in inner_rhombii

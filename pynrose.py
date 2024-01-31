@@ -112,9 +112,9 @@ class GridCell(object):
 
     def corners(self, margin=0.0):
         yield self.origin + Vector(-margin, -margin)
-        yield self.origin + Vector(self.extent.x + margin, -margin)
+        yield Vector(self.origin.x - margin, self.extent.y + margin)
         yield self.extent + Vector(margin, margin)
-        yield self.origin + Vector(-margin, self.extent.y + margin)
+        yield Vector(self.extent.x + margin, self.origin.y - margin)
 
 
 class RhombusType(Enum):
@@ -615,7 +615,7 @@ class Tiling(object):
             return (grid_cell.origin.x <= midpoint.x < grid_cell.extent.x and
                     grid_cell.origin.y <= midpoint.y < grid_cell.extent.y)
 
-        grid_corners = [*grid_cell.corners(.8)]
+        grid_corners = [*grid_cell.corners(1.6)]
         for pentangle in PentAngles.others(PentAngles.pentangle(4)):
             family = self.strip_family(pentangle)
 

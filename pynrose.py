@@ -828,13 +828,13 @@ def generate_svgline(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generates a penrose P3 tiling.",
+        description="Generates an SVG containing a penrose P3 tiling.",
         add_help=False)
 
     parser.add_argument(
         "-?", "--help",
         action='help',
-        help='show this help message and exit')
+        help='Show this help message and exit.')
 
     output_group = parser.add_argument_group("Output").add_mutually_exclusive_group()
     output_group.add_argument("--svg", action='store_true',

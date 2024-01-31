@@ -455,6 +455,15 @@ class Strip(object):
         return "Strip(%d, %f)" % (self.family.pentangle.pentangle, self.multiple)
 
 
+class RhombusVertex(object):
+    def __init__(self, coordinate, lattice_coordinate):
+        self.coordinate = coordinate
+        self.lattice_coordinate = lattice_coordinate
+
+    def __repr__(self):
+        return "RhombusVertex(%s, %s)" % (self.coordinate, self.lattice_coordinate)
+
+
 class Rhombus(object):
     # a list of lattice coordinate offsets, that produce the list of vertices in the correct order around the rhombus
     _VERTEX_OFFSETS = [
@@ -485,9 +494,10 @@ class Rhombus(object):
             coords[self.strip1.family.pentangle.pentangle] += vertex_offsets[0]
             coords[self.strip2.family.pentangle.pentangle] += vertex_offsets[1]
 
-            vertices.append(self._cartesian_from_lattice(coords))
+            vertices.append(
+                RhombusVertex(self._cartesian_from_lattice(coords), tuple(coords)))
 
-        if _ccw(vertices[0], vertices[1], vertices[2]) > 0:
+        if _ccw(vertices[0].coordinate, vertices[1].coordinate, vertices[2].coordinate) > 0:
             vertices.reverse()
         return vertices
 
@@ -516,7 +526,7 @@ class Rhombus(object):
     def contains_point(self, point: Vector):
         vertices = self.vertices()
         for i in range(0, 4):
-            val = _ccw(vertices[i], vertices[(i+1) % 4], point)
+            val = _ccw(vertices[i].coordinate, vertices[(i+1) % 4].coordinate, point)
             if val > 1e-10:
                 return False
         return True
@@ -725,8 +735,8 @@ def generate_svg(
                 string += ' d="M'
 
                 for vertex in rhombus.vertices():
-                    vertex = vertex + offset
-                    string += ' %f,%f' % (vertex.x, vertex.y)
+                    coordinate = vertex.coordinate + offset
+                    string += ' %f,%f' % (coordinate.x, coordinate.y)
                 string += ' z"/>'
                 print(string)
 

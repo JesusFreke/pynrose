@@ -55,7 +55,7 @@ class TestTiling(unittest.TestCase):
 
         assert rhombus.contains_point(rhombus.midpoint)
         for vertex in rhombus.vertices():
-            assert rhombus.contains_point(vertex)
+            assert rhombus.contains_point(vertex.coordinate)
 
         assert not rhombus.contains_point(Vector(rhombus.midpoint.x + 3, rhombus.midpoint.y))
         assert not rhombus.contains_point(Vector(rhombus.midpoint.x - 3, rhombus.midpoint.y))
@@ -63,16 +63,16 @@ class TestTiling(unittest.TestCase):
         assert not rhombus.contains_point(Vector(rhombus.midpoint.x, rhombus.midpoint.y - 3))
 
         # a point just barely past a vertex
-        assert not rhombus.contains_point(rhombus.midpoint + (vertices[0] - rhombus.midpoint) * 1.01)
+        assert not rhombus.contains_point(rhombus.midpoint + (vertices[0].coordinate - rhombus.midpoint) * 1.01)
 
-        midpoint = vertices[0] + (vertices[1] - vertices[0]) / 2
+        midpoint = vertices[0].coordinate + (vertices[1].coordinate - vertices[0].coordinate) / 2
         assert rhombus.contains_point(midpoint)
 
         # a point just barely past the midpoint of an edge
         assert not rhombus.contains_point(rhombus.midpoint + (midpoint - rhombus.midpoint) * 1.01)
 
         # a point just barely past the vertex
-        assert not rhombus.contains_point(vertices[0] + (vertices[0] - rhombus.midpoint) * 1.01)
+        assert not rhombus.contains_point(vertices[0].coordinate + (vertices[0].coordinate - rhombus.midpoint) * 1.01)
 
     def test_rhombus_at_point(self):
         tiling = Tiling(rnd=random.Random(12345))
@@ -89,14 +89,14 @@ class TestTiling(unittest.TestCase):
             assert tiling.rhombus_at_point(rhombus.midpoint) == rhombus
 
             vertices = rhombus.vertices()
-            edge_midpoint = vertices[0] + (vertices[0] - vertices[1]) / 2
+            edge_midpoint = vertices[0].coordinate + (vertices[0].coordinate - vertices[1].coordinate) / 2
 
             edge_rhombus = tiling.rhombus_at_point(edge_midpoint)
             assert edge_rhombus.contains_point(edge_midpoint)
 
             for vertex in rhombus.vertices():
-                rhombus = tiling.rhombus_at_point(vertex)
-                assert rhombus.contains_point(vertex)
+                rhombus = tiling.rhombus_at_point(vertex.coordinate)
+                assert rhombus.contains_point(vertex.coordinate)
 
     def test_backward_forward_strip_iteration(self):
         tiling = Tiling(rnd=random.Random(12345))
@@ -128,8 +128,8 @@ class TestTiling(unittest.TestCase):
                     shared_vertex_count = 0
                     for rhombus1_vertex in rhombus1.vertices():
                         for rhombus2_vertex in rhombus2.vertices():
-                            if (math.isclose(rhombus1_vertex.x, rhombus2_vertex.x) and
-                                    math.isclose(rhombus1_vertex.y, rhombus2_vertex.y)):
+                            if (math.isclose(rhombus1_vertex.coordinate.x, rhombus2_vertex.coordinate.x) and
+                                    math.isclose(rhombus1_vertex.coordinate.y, rhombus2_vertex.coordinate.y)):
                                 shared_vertex_count += 1
                     assert shared_vertex_count == 2
 

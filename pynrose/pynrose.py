@@ -862,10 +862,6 @@ def main():
 
     args = parser.parse_args()
 
-    if hasattr(args, "help"):
-        parser.print_help()
-        return
-
     tiling = Tiling(rnd=random.Random(args.seed))
     grid = Grid(Vector(args.minX, args.minY), Vector(args.width, args.height))
 

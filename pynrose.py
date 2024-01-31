@@ -619,6 +619,21 @@ class Tiling(object):
                 return rhombus
         raise Exception("Could not find the rhombus containing the given point")
 
+    def rhombus_edges(self, grid_cell: GridCell):
+        processed_edges = set()
+
+        for rhombus in self.rhombii(grid_cell):
+            vertices = rhombus.vertices()
+            for i in range(4):
+                edge_key = (
+                    vertices[i].lattice_coordinate,
+                    vertices[(i+1) % 4].lattice_coordinate)
+
+                if edge_key not in processed_edges and tuple(reversed(edge_key)) not in processed_edges:
+                    processed_edges.add(edge_key)
+                    edge = vertices[i], vertices[(i+1) % 4]
+                    yield edge
+
     def rhombii(self, grid_cell: GridCell):
 
         def rhombus_in_cell(r: Rhombus):
@@ -748,6 +763,65 @@ def generate_svg(
     print('</svg>')
 
 
+def generate_svgline(
+        tiling: Tiling,
+        grid: Grid,
+        grid_count_x: int, grid_count_y: int,
+        grid_spacing_x: float, grid_spacing_y: float):
+
+    # the maximum amount a tile can stick out of the bounding box. Basically, half of a thin rhombus
+    max_protrusion = math.sin(math.radians(72))
+
+    view_size = Vector(
+        grid.grid_size.x * grid_count_x + ((grid_count_x - 1) * grid_spacing_x) + max_protrusion * 2,
+        grid.grid_size.y * grid_count_y + ((grid_count_y - 1) * grid_spacing_y) + max_protrusion * 2)
+
+    print('<svg width="%fmm" height="%fmm" viewBox="%f %f %f %f">' % (
+        view_size.x,
+        view_size.y,
+        grid.origin.x - max_protrusion,
+        grid.origin.y - max_protrusion,
+        view_size.x,
+        view_size.y))
+    print('<style><![CDATA[')
+    print('rect.boundingBox {')
+    print('    stroke: blue;')
+    print('    stroke-width: .05;')
+    print('    fill-opacity: 0;')
+    print('    stroke-opacity: .5;')
+    print('}')
+    print('path.rhombusEdge {')
+    print('    stroke: #000000;')
+    print('    stroke-width: .01;')
+    print('}')
+    print(']]></style>')
+
+    for grid_x in range(grid_count_x):
+        for grid_y in range(grid_count_y):
+            offset = Vector(grid_x * grid_spacing_x, grid_y * grid_spacing_y)
+
+            for vertex1, vertex2 in tiling.rhombus_edges(grid.cell(grid_x, grid_y)):
+                string = '<path class="rhombusEdge"'
+
+                string += ' d="M'
+
+                coordinate = vertex1.coordinate + offset
+                string += ' %f,%f' % (coordinate.x, coordinate.y)
+
+                coordinate = vertex2.coordinate + offset
+                string += ' %f,%f' % (coordinate.x, coordinate.y)
+
+                string += ' z"/>'
+                print(string)
+
+            print('<rect x="%f" y="%f" width="%f" height="%f" class="boundingBox"/>' % (
+                grid.origin.x + grid_x * grid.grid_size.x + grid_spacing_x * grid_x,
+                grid.origin.y + grid_y * grid.grid_size.y + grid_spacing_y * grid_y,
+                grid.grid_size.x,
+                grid.grid_size.y))
+    print('</svg>')
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generates a penrose P3 tiling.",
@@ -759,8 +833,10 @@ def main():
         help='show this help message and exit')
 
     output_group = parser.add_argument_group("Output").add_mutually_exclusive_group()
-    output_group.add_argument("--svg", default=True,
+    output_group.add_argument("--svg", action='store_true',
                               help="(Default)Generate a dual-color SVG with each rhombus as a separate path.")
+    output_group.add_argument("--svgline", action='store_true',
+                              help="Generate an SVG containing the individual, deduplicated rhombus edges.")
 
     grid_group = parser.add_argument_group("Grid")
     grid_group.add_argument("--minX", "-x", type=float, default=0.0, help="The minimum x value of the bounding grid.")
@@ -787,7 +863,9 @@ def main():
     tiling = Tiling(rnd=random.Random(args.seed))
     grid = Grid(Vector(args.minX, args.minY), Vector(args.width, args.height))
 
-    if hasattr(args, "svg"):
+    if hasattr(args, "svgline"):
+        generate_svgline(tiling, grid, args.count_x, args.count_y, args.grid_spacing_x, args.grid_spacing_y)
+    else:
         generate_svg(tiling, grid, args.count_x, args.count_y, args.grid_spacing_x, args.grid_spacing_y)
 
 

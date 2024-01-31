@@ -310,3 +310,27 @@ class TestTiling(unittest.TestCase):
             for rhombus in tiling.rhombii(grid.cell(0, 0)):
                 assert rhombus not in rhombii
                 rhombii.add(rhombus)
+
+    def test_rhombus_edges_deduplicated(self):
+        """Test that tiling.rhombus_edges returns deduplicated edges"""
+
+        tiling = Tiling(rnd=random.Random(12345))
+
+        rnd = random.Random(12345)
+
+        for _ in range(100):
+            grid = Grid(
+                Vector(rnd.uniform(-100, 100), rnd.uniform(-100, 100)),
+                Vector(10, 10))
+
+            def vertices_equal(v1, v2):
+                return (math.isclose(v1.coordinate.x, v2.coordinate.x) and
+                        math.isclose(v1.coordinate.y, v2.coordinate.y))
+
+            edges = []
+            for vertex1, vertex2 in tiling.rhombus_edges(grid.cell(0, 0)):
+                for existing_edge in edges:
+                    if ((vertices_equal(vertex1, existing_edge[0]) and vertices_equal(vertex2, existing_edge[1])) or
+                            (vertices_equal(vertex2, existing_edge[0]) and vertices_equal(vertex1, existing_edge[1]))):
+                        self.fail()
+                edges.append((vertex1, vertex2))

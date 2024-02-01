@@ -30,23 +30,34 @@ from typing import List, Optional, Tuple
 
 
 class Vector(object):
-    def __init__(self, x, y):
+    """A 2d vector."""
+
+    def __init__(self, x: float, y: float):
+        """Constructs a new (x, y) vector.
+
+        :param x: The component of the vector in the x-axis.
+        :param y: The component of the vector in the y-axis.
+        """
         self._x = x
         self._y = y
 
     @property
     def x(self):
+        """The component of this vector in the x-axis."""
         return self._x
 
     @property
     def y(self):
+        """The component of this vector in the y-axis."""
         return self._y
 
     @cached_property
     def length(self):
+        """The length of this vector."""
         return math.sqrt(self._x ** 2 + self._y ** 2)
 
     def dot(self, other: 'Vector'):
+        """The dot product between this vector and another vector."""
         return (self._x * other._x) + (self._y * other._y)
 
     def __eq__(self, other):
@@ -82,11 +93,19 @@ class Vector(object):
 
 
 class Grid(object):
+    """Defines a repeating grid of equal-size grid cells."""
+
     def __init__(self, origin: Vector, grid_size: Vector):
+        """Constructs a new Grid.
+
+        :param origin: The coordinate of the lower left corner of the (0, 0) grid cell.
+        :param grid_size: The size of each grid cell.
+        """
         self.origin = origin
         self.grid_size = grid_size
 
     def cell(self, x: int, y: int):
+        """Returns the (x, y)th grid cell."""
         return GridCell(self, x, y)
 
     def __eq__(self, other):
@@ -99,7 +118,9 @@ class Grid(object):
 
 
 class GridCell(object):
+    """An individual grid cell."""
     def __init__(self, grid: Grid, x_multiple: int, y_multiple: int):
+        """Constructs a new grid cell at index (x, y) from the given grid definition."""
         self.grid = grid
         self.x_multiple = x_multiple
         self.y_multiple = y_multiple
@@ -108,9 +129,14 @@ class GridCell(object):
         self.extent = self.origin + grid.grid_size
 
     def midpoint(self):
+        """Returns the midpoint of the grid."""
         return (self.origin + self.extent) / 2
 
     def corners(self, margin=0.0):
+        """Returns the 4 coordinates of the corners of the grid, with an optional margin added.
+
+        :param margin: How much margin to add around the edges of the grid cell.
+        """
         yield self.origin + Vector(-margin, -margin)
         yield Vector(self.origin.x - margin, self.extent.y + margin)
         yield self.extent + Vector(margin, margin)
@@ -123,6 +149,7 @@ class RhombusType(Enum):
 
 
 class PentAngle(object):
+    """Represents one of the 5 possible angles in the pentagrid."""
 
     _SIN = [
         math.sin(0),
@@ -153,6 +180,12 @@ class PentAngle(object):
         1/math.cos(4 * 2 * math.pi / 5)]
 
     def __init__(self, pentangle: int):
+        """Constructs a new PentAngle.
+
+        Prefer using PentAngles.pentangle(pentangle).
+
+        :param pentangle: An integer representing a multiple of 360/5 degrees. Will be normalized to [0, 4].
+        """
         self.pentangle: int = int(pentangle % 5)
 
         self.radians = self.pentangle * 2 * math.pi / 5
@@ -161,25 +194,27 @@ class PentAngle(object):
         self._cos = PentAngle._COS[pentangle]
 
     def unit(self) -> 'Vector':
-        """Returns a unit vector in the direction of this PentAngle"""
+        """Returns a unit vector in the direction of this PentAngle."""
         return Vector(self.sin(), self.cos())
 
     def sin(self, other: 'PentAngle' = None) -> float:
-        """Returns the sin of the angle between this pentangle and another pentangle"""
+        """Returns the sin of this pentangle, or of the angle between this pentangle and another pentangle."""
         if other is None:
             return self._sin
         return PentAngle._SIN[(other.pentangle - self.pentangle) % 5]
 
     def inverse_sin(self, other: 'PentAngle') -> float:
+        """Returns the inverse of the sin of the angle between this pentangle and another pentangle."""
         return PentAngle._INVERSE_SIN[(other.pentangle - self.pentangle) % 5]
 
     def cos(self, other: 'PentAngle' = None) -> float:
-        """Returns the cos of the angle between this pentangle and another pentangle"""
+        """Returns the cose of this pentangle, or of the angle between this pentangle and another pentangle."""
         if not other:
             return self._cos
         return PentAngle._COS[(other.pentangle - self.pentangle) % 5]
 
     def inverse_cos(self, other: 'PentAngle') -> float:
+        """Returns the inverse of the cos of the angle between this pentangle and another pentangle."""
         return PentAngle._INVERSE_COS[(other.pentangle - self.pentangle) % 5]
 
     def __eq__(self, other):
@@ -192,6 +227,7 @@ class PentAngle(object):
 
 
 class PentAngles(object):
+    """A convenience class for """
 
     _ALL = (
         PentAngle(0),
@@ -203,15 +239,17 @@ class PentAngles(object):
 
     @staticmethod
     def pentangle(pentangle: int):
+        """Returns a PentAngle object for the given pentangle."""
         return PentAngles._ALL[pentangle]
 
     @staticmethod
     def all():
+        """Returns a tuple of all PentAngles in order."""
         return PentAngles._ALL
 
     @staticmethod
     def others(pent_angle: 'PentAngle'):
-        """Yields the other 4 pentangles, excluding the given one."""
+        """Returns the other 4 PentAngles, excluding the given one, in order."""
         for other in PentAngles._ALL:
             if other == pent_angle:
                 continue
@@ -219,9 +257,15 @@ class PentAngles(object):
 
 
 class StripFamily(object):
-    """Represents 1 of the 5 families of strips of rhombii in de Bruijn's method"""
+    """Represents 1 of the 5 families of strips of rhombii in de Bruijn's method."""
 
     def __init__(self, tiling: 'Tiling', offset: float, pentangle: PentAngle):
+        """Constructs a new StripFamily.
+
+        :param tiling: The Tiling that this StripFamily is associated with.
+        :param offset: The offset in pentagrid space for this family.
+        :param pentangle: Which pentangle this family is associated with.
+        """
         self.tiling = tiling
         self.offset = offset
         self.pentangle = pentangle
@@ -241,15 +285,17 @@ class StripFamily(object):
         return Vector(direction.y, -direction.x)
 
     def strip(self, multiple: int):
+        """Returns the strip at the given multiple."""
         return Strip(self, multiple)
 
     def origin(self):
+        """Returns the origin of this family."""
         return self.strip(0).origin()
 
     def strips_near_point(self, point: Vector):
         """Returns 1 or 2 strips from this family that are near the given point.
 
-        The returned strips are ones that could potentially contain the rhombus at the given point (but may not).
+        The returned strips are ones that could potentially (but may not) contain the rhombus at the given point.
         """
         pentagrid_point = point / 2.5
         multiple = (pentagrid_point - self.origin()).dot(self.offset_direction())
@@ -305,19 +351,28 @@ def _intersection(p0, p1, p2, p3):
 class Strip(object):
     """Represents a single string of rhombii in de Bruijn's method"""
     def __init__(self, family: StripFamily, multiple: int):
+        """Constructs a new Strip.
+
+        :param family: The family this strip is associated with.
+        :param multiple: The multiple of the strip.
+        """
         self.family = family
         self.multiple = multiple
 
     def rhombii(self, start_distance: float, forward: bool):
         """Infinitely iterates over the rhombii in this strip.
 
-        :param start_distance: The distance in pentagrid space from this strip's origin to start iterating
-        :param forward: The direction to iterate
+        :param start_distance: The distance in pentagrid space from this strip's origin to start iterating.
+        :param forward: The direction to iterate.
         """
-
         return self._rhombii(start_distance, forward)
 
     def rhombus_at_intersection(self, other: 'Strip'):
+        """Returns the Rhombus represented by the intersection of this strip and the given strip.
+
+        :param other: The strip to find the intersection with. Must not be from the same family as this strip
+        (i.e. not parallel with this strip).
+        """
         if other.family == self.family:
             raise ValueError("The strips don't intersect")
 
@@ -347,10 +402,12 @@ class Strip(object):
         return Rhombus(self, other, tuple(lattice_coords))
 
     def rhombus(self, target_distance: float):
-        """Gets the rhombus near the given distance from this strip's origin.
+        """Returns the rhombus nearest the given distance from this strip's origin.
 
         This finds the intersection closest to the point that is the given distance from this strip's origin, and
-        returns the associated rhombus
+        returns the associated rhombus.
+
+        :param target_distance: The distance from the strip's origin in pentagrid space.
         """
         closest_value = math.inf
         closest = None
@@ -417,24 +474,31 @@ class Strip(object):
                     break
 
     def origin(self):
-        """Gets the origin of the strip, which is an arbitrary point that lies on the strip"""
+        """Returns the origin of the strip, which is an arbitrary point that lies on the strip."""
         return self.family.offset_direction() * (self.family.offset + self.multiple)
 
     def two_points(self):
-        """Gets two arbitrary, non-equal points on the strip as vectors from the origin"""
+        """Returns two arbitrary, non-equal points on the strip as vectors from the origin."""
         point1 = self.origin()
         return point1, point1 + (self.family.direction() * 1000)
 
     def intersection(self, other: 'Strip'):
-        """Gets the coordinates of the intersection between this strip and the given strip, or None if parallel"""
+        """Returns the coordinates of the intersection between this strip and the given strip.
 
+        :param other: The strip to find the intersection with.
+        :return: The coordinates in pentagrid space of the intersection between this strip and the given strip, or None
+        if the strips are parallel.
+        """
         if self.family.pentangle == other.family.pentangle:
             return None
 
         return _intersection(*self.two_points(), *other.two_points())
 
     def intersection_distance_from_point(self, other: 'Strip'):
-        """Gets the distance from the strip's origin to the intersection with the given strip"""
+        """Returns the distance in pentagrid space from the strip's origin to the intersection with the given strip.
+
+        :param other: The strip to find the intersection with. Must not be from the same family/parallel.
+        """
         intersection = self.intersection(other)
         if not intersection:
             raise ValueError("The strips don't intersect")
@@ -455,7 +519,13 @@ class Strip(object):
 
 
 class RhombusVertex(object):
+    """Represents a single rhombus vertex."""
     def __init__(self, coordinate, lattice_coordinate):
+        """Constructs a new RhombusVertex.
+
+        :param coordinate: The coordinate of the vertex in rhombus space.
+        :param lattice_coordinate: The lattice coordinate of the vertex.
+        """
         self.coordinate = coordinate
         self.lattice_coordinate = lattice_coordinate
 
@@ -464,7 +534,8 @@ class RhombusVertex(object):
 
 
 class Rhombus(object):
-    # a list of lattice coordinate offsets, that produce the list of vertices in the correct order around the rhombus
+    """Represents a single Rhombus."""
+    # a list of lattice coordinate offsets, that produce the list of vertices in order around the rhombus
     _VERTEX_OFFSETS = [
         (0, 0),
         (0, -1),
@@ -472,11 +543,20 @@ class Rhombus(object):
         (-1, 0)]
 
     def __init__(self, strip1: Strip, strip2: Strip, lattice_coords: Tuple[int, ...]):
+        """Constructs a new Rhombus.
+
+        Note that the order of the two strips does not matter.
+
+        :param strip1: The first strip of the pair of intersecting strips that defines this rhombus.
+        :param strip2: The second strip of the pair of intersecting strips that defines this rhombus.
+        :param lattice_coords: The lattice coordinates of the "maximal" vertex.
+        """
         self.strip1 = strip1
         self.strip2 = strip2
         self.lattice_coords = lattice_coords
 
     def type(self):
+        """Returns the RhombusType of this rhombus."""
         diff = abs(self.strip1.family.pentangle.pentangle - self.strip2.family.pentangle.pentangle)
 
         if diff == 1 or diff == 4:
@@ -484,6 +564,7 @@ class Rhombus(object):
         return RhombusType.THIN
 
     def vertices(self):
+        """Returns the 4 vertices of this rhombus."""
         vertices = []
 
         for i in range(0, 4):
@@ -502,6 +583,7 @@ class Rhombus(object):
 
     @cached_property
     def midpoint(self):
+        """Returns the midpoint of this rhombus."""
         vertices = []
         # get 2 opposite vertices
         for i in (0, 2):
@@ -517,12 +599,15 @@ class Rhombus(object):
             (vertices[0].y + vertices[1].y) / 2)
 
     def ordered_strips(self):
-        """returns the 2 intersection Strips that define this Rhombus, in order of pentangle"""
+        """Returns the 2 intersection Strips that define this rhombus, in order of pentangle."""
         if self.strip1.family.pentangle.pentangle < self.strip2.family.pentangle.pentangle:
             return self.strip1, self.strip2
         return self.strip2, self.strip1
 
     def contains_point(self, point: Vector):
+        """Returns whether this rhombus contains the given point.
+
+        Will return true for any point on the interior, any point on one of the edges, or any of the vertices."""
         vertices = self.vertices()
         for i in range(0, 4):
             val = _ccw(vertices[i].coordinate, vertices[(i+1) % 4].coordinate, point)
@@ -562,15 +647,15 @@ class Tiling(object):
     """
 
     def __init__(self, offsets: Optional[List[float]] = None, rnd: Optional[random.Random] = None):
-        """Create a new tiling.
+        """Construct a new tiling.
 
         :param offsets: A list of 5 offsets, as the offset for each strip family. These offsets must follow the
             constraints outlined in (1). They must be distinct from each other, the sum of any two must not be an
             integer, and the sum of all 5 must be an integer.
 
             If not provided, offsets will be generated randomly using rnd.
-        :param rnd: A random number generator to use to generate the offsets. Only used if offsets is None. If not
-        provided, a new Random instance will be created with the default seeding behavior.
+        :param rnd: A random number generator to use to generate the offsets. Only used if the offsets are not provided.
+        If not provided, a new Random instance will be created with the default seeding behavior.
         """
         # TODO: check the offset constraints
         # TODO: normalize the offsets to [0, 1)
@@ -598,10 +683,17 @@ class Tiling(object):
         return offsets
 
     def strip_family(self, pentangle: PentAngle):
+        """Returns the StripFamily for the given pentangle.
+
+        :param pentangle: The pentangle of the StripFamily.
+        """
         return self._families[pentangle.pentangle]
 
     def rhombus_at_point(self, point: Vector):
-        """Returns the rhombus that contains the given point"""
+        """Returns the Rhombus that contains the given point.
+
+        :param point: The point to find the containing Rhombus of.
+        """
         strips: List[Strip] = []
         # find all strips that are near enough to the point that could feasibly contain the point
         for pentangle in PentAngles.all():
@@ -619,6 +711,17 @@ class Tiling(object):
         raise Exception("Could not find the rhombus containing the given point")
 
     def rhombus_edges(self, grid_cell: GridCell):
+        """Returns all distinct rhombus edges of rhombii in the given grid cell.
+
+        All edges will be returned for every rhombus whose midpoint is contained in the grid cell. Some of the returned
+        edges will fall outside the grid cell.
+
+        A rhombus is contained by exactly one grid cell. If the midpoint lies on a grid cell edge or corner, the grid
+        cell with the higher x and/or y indices "wins".
+
+        :param grid_cell: The grid cell to find the rhombus edges within.
+        :returns: An iterable of (RhombusVertex, RhombusVertex) tuples.
+        """
         processed_edges = set()
 
         for rhombus in self.rhombii(grid_cell):
@@ -634,6 +737,16 @@ class Tiling(object):
                     yield edge
 
     def rhombii(self, grid_cell: GridCell):
+        """Returns all rhombii in the given grid cell.
+
+        All rhombii whose midpoint lies in the given grid cell will be returned. Parts of some of these rhombii will
+        extend outside the grid cell.
+
+        A rhombus is contained by exactly one grid cell. If the midpoint lies on a grid cell edge or corner, the grid
+        cell with the higher x and/or y indices "wins".
+
+        :param grid_cell: The grid cell to get the rhombii within.
+        """
 
         def rhombus_in_cell(r: Rhombus):
             midpoint = r.midpoint

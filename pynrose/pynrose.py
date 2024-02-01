@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 # Copyright (c) 2024, Ben Gruver
 #
 # Redistribution and use in source and binary forms, with or without

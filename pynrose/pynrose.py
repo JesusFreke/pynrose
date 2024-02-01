@@ -26,7 +26,7 @@ import math
 import random
 from enum import Enum
 from functools import cached_property
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Sequence
 
 
 class Vector(object):
@@ -748,20 +748,39 @@ class Tiling(object):
     (2) http://www.ams.org/publicoutreach/feature-column/fcarc-ribbons
     """
 
-    def __init__(self, offsets: Optional[List[float]] = None, rnd: Optional[random.Random] = None):
+    def __init__(self,
+                 offsets: Optional[Sequence[float]] = None,
+                 rnd: Optional[random.Random] = None,
+                 check_offsets: bool = True):
         """Construct a new tiling.
 
-        :param offsets: A list of 5 offsets, as the offset for each strip family. These offsets must follow the
-            constraints outlined in (1). They must be distinct from each other, the sum of any two must not be an
-            integer, and the sum of all 5 must be an integer.
+        :param offsets: A list of 5 offsets, as the offset for each strip family.
 
-            If not provided, offsets will be generated randomly using rnd.
+        In order to generate a proper penrose tiling, the offsets must follow the constraints outlined in (1). They
+        must be distinct from each other, the sum of any two must not be an integer, and the sum of all 5 must be an
+        integer.
+
+        If not provided, offsets will be generated randomly using rnd.
         :param rnd: A random number generator to use to generate the offsets. Only used if the offsets are not provided.
         If neither offsets nor rnd is not provided, a new Random instance will be created with the default seeding
         behavior.
+        :param check_offsets: If true, and the offsets are provided, the offsets will be checked to ensure they meet
+        the constraints that will generate a proper penrose tiling.
+
+        If false, offsets not meeting these constraints can be used. This will still generate a valid tiling, and can
+        be interesting in its own right, it just won't be a proper P3 penrose tiling.
         """
-        # TODO: check the offset constraints
-        # TODO: normalize the offsets to [0, 1)
+        if offsets and check_offsets:
+            offset_sum = 0
+            for i in range(0, 5):
+                offset_sum += offsets[i]
+                for j in range(i+1, 5):
+                    if (offsets[i] + offsets[j]) == int(offsets[i] + offsets[j]):
+                        raise ValueError("The sum of offset %d and %d are an integer: %f + %f = %d" % (
+                            i, j, offsets[i], offsets[j], int(offsets[i] + offsets[j])))
+            if int(offset_sum) != offset_sum:
+                raise ValueError("The sum of all 5 offsets must be an integer.")
+
         if not offsets:
             if not rnd:
                 rnd = random.Random()

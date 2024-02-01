@@ -28,6 +28,8 @@ import unittest
 from multiprocessing import Process
 from typing import List
 
+import pytest
+
 from pynrose import Tiling, Vector, Grid, PentAngles, Rhombus, GridCell
 
 
@@ -334,3 +336,19 @@ class TestTiling(unittest.TestCase):
                             (vertices_equal(vertex2, existing_edge[0]) and vertices_equal(vertex1, existing_edge[1]))):
                         self.fail()
                 edges.append((vertex1, vertex2))
+
+    def test_check_offsets(self):
+        """Tests the offset checking logic in the Tiling constructor."""
+
+        with pytest.raises(ValueError):
+            Tiling((1.0, 1.0, 1.0, 1.0, 1.0))
+
+        Tiling((1.0, 1.0, 1.0, 1.0, 1.0), check_offsets=False)
+
+        with pytest.raises(ValueError):
+            Tiling((.4, .6, .3, .34, .36))
+
+        Tiling((.49, .50, .31, .34, .36))
+
+        with pytest.raises(ValueError):
+            Tiling((.49, .52, .31, .34, .36))

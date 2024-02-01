@@ -93,16 +93,26 @@ class Vector(object):
 
 
 class Grid(object):
-    """Defines a repeating grid of equal-size grid cells."""
+    """A repeating grid of equal-size grid cells."""
 
     def __init__(self, origin: Vector, grid_size: Vector):
         """Constructs a new Grid.
 
-        :param origin: The coordinate of the lower left corner of the (0, 0) grid cell.
+        :param origin: The coordinate of the lower left corner of the (0, 0)the grid cell.
         :param grid_size: The size of each grid cell.
         """
-        self.origin = origin
-        self.grid_size = grid_size
+        self._origin = origin
+        self._grid_size = grid_size
+
+    @property
+    def origin(self):
+        """The coordinate of the lower left corner of the (0, 0)th grid cell."""
+        return self._origin
+
+    @property
+    def grid_size(self):
+        """The size of each grid cell."""
+        return self._grid_size
 
     def cell(self, x: int, y: int):
         """Returns the (x, y)th grid cell."""
@@ -119,14 +129,45 @@ class Grid(object):
 
 class GridCell(object):
     """An individual grid cell."""
-    def __init__(self, grid: Grid, x_multiple: int, y_multiple: int):
-        """Constructs a new grid cell at index (x, y) from the given grid definition."""
-        self.grid = grid
-        self.x_multiple = x_multiple
-        self.y_multiple = y_multiple
 
-        self.origin = grid.origin + Vector(grid.grid_size.x * x_multiple, grid.grid_size.y * y_multiple)
-        self.extent = self.origin + grid.grid_size
+    def __init__(self, grid: Grid, x_multiple: int, y_multiple: int):
+        """Constructs a new grid cell at index (x, y) from the given grid definition.
+
+        :param grid: The grid containing this grid cell.
+        :param x_multiple: The x multiple of this grid cell.
+        :param y_multiple: The y multiple of this grid cell.
+        """
+        self._grid = grid
+        self._x_multiple = x_multiple
+        self._y_multiple = y_multiple
+
+        self._origin = grid.origin + Vector(grid.grid_size.x * x_multiple, grid.grid_size.y * y_multiple)
+        self._extent = grid.origin + grid.grid_size
+
+    @property
+    def grid(self):
+        """The grid that this grid cell is a part of."""
+        return self._grid
+
+    @property
+    def x_multiple(self):
+        """The x multiple of this grid cell."""
+        return self._x_multiple
+
+    @property
+    def y_multiple(self):
+        """The y multiple of this grid cell."""
+        return self._y_multiple
+
+    @property
+    def origin(self):
+        """The coordinate of the lower left corner of this grid cell."""
+        return self._origin
+
+    @property
+    def extent(self):
+        """The coordinate of the upper right corner of this grid cell."""
+        return self._extent
 
     def midpoint(self):
         """Returns the midpoint of the grid."""
@@ -149,7 +190,7 @@ class RhombusType(Enum):
 
 
 class PentAngle(object):
-    """Represents one of the 5 possible angles in the pentagrid."""
+    """A multiple of 360/5 degrees."""
 
     _SIN = [
         math.sin(0),
@@ -186,12 +227,23 @@ class PentAngle(object):
 
         :param pentangle: An integer representing a multiple of 360/5 degrees. Will be normalized to [0, 4].
         """
-        self.pentangle: int = int(pentangle % 5)
-
-        self.radians = self.pentangle * 2 * math.pi / 5
+        self._pentangle: int = int(pentangle % 5)
 
         self._sin = PentAngle._SIN[pentangle]
         self._cos = PentAngle._COS[pentangle]
+
+    @property
+    def pentangle(self):
+        """The multiple of 360/5 degrees that this pentangle represents."""
+        return self._pentangle
+
+    def degrees(self):
+        """The angle of this pentangle in degrees."""
+        return self._pentangle * 360 / 5
+
+    def radians(self):
+        """The angle of this pentangle in radians."""
+        return self._pentangle * 2 * math.pi / 5
 
     def unit(self) -> 'Vector':
         """Returns a unit vector in the direction of this PentAngle."""
@@ -266,9 +318,24 @@ class StripFamily(object):
         :param offset: The offset in pentagrid space for this family.
         :param pentangle: Which pentangle this family is associated with.
         """
-        self.tiling = tiling
-        self.offset = offset
-        self.pentangle = pentangle
+        self._tiling = tiling
+        self._offset = offset
+        self._pentangle = pentangle
+
+    @property
+    def tiling(self):
+        """The Tiling that this StripFamily is associated with."""
+        return self._tiling
+
+    @property
+    def offset(self):
+        """The offset in pentagrid space for this family."""
+        return self._offset
+
+    @property
+    def pentangle(self):
+        """The pentangle for this family."""
+        return self._pentangle
 
     def direction(self) -> Vector:
         """Returns a unit vector in the direction the strips from this family run"""
@@ -353,25 +420,35 @@ class Strip(object):
     def __init__(self, family: StripFamily, multiple: int):
         """Constructs a new Strip.
 
-        :param family: The family this strip is associated with.
-        :param multiple: The multiple of the strip.
+        :param family: The StringFamily this Strip is associated with.
+        :param multiple: The multiple of the Strip.
         """
-        self.family = family
-        self.multiple = multiple
+        self._family = family
+        self._multiple = multiple
+
+    @property
+    def family(self):
+        """The StripFamily this Strip is associated with."""
+        return self._family
+
+    @property
+    def multiple(self):
+        """The multiple of this Strip."""
+        return self._multiple
 
     def rhombii(self, start_distance: float, forward: bool):
-        """Infinitely iterates over the rhombii in this strip.
+        """Infinitely iterates over the rhombii in this Strip.
 
-        :param start_distance: The distance in pentagrid space from this strip's origin to start iterating.
+        :param start_distance: The distance in pentagrid space from this Strip's origin to start iterating.
         :param forward: The direction to iterate.
         """
         return self._rhombii(start_distance, forward)
 
     def rhombus_at_intersection(self, other: 'Strip'):
-        """Returns the Rhombus represented by the intersection of this strip and the given strip.
+        """Returns the Rhombus represented by the intersection of this Strip and the given Strip.
 
-        :param other: The strip to find the intersection with. Must not be from the same family as this strip
-        (i.e. not parallel with this strip).
+        :param other: The Strip to find the intersection with. Must not be from the same StripFamily as this Strip
+        (i.e. not parallel with this Strip).
         """
         if other.family == self.family:
             raise ValueError("The strips don't intersect")
@@ -402,12 +479,12 @@ class Strip(object):
         return Rhombus(self, other, tuple(lattice_coords))
 
     def rhombus(self, target_distance: float):
-        """Returns the rhombus nearest the given distance from this strip's origin.
+        """Returns the rhombus nearest the given distance from this Strip's origin.
 
-        This finds the intersection closest to the point that is the given distance from this strip's origin, and
+        This finds the intersection closest to the point that is the given distance from this Strip's origin, and
         returns the associated rhombus.
 
-        :param target_distance: The distance from the strip's origin in pentagrid space.
+        :param target_distance: The distance from the Strip's origin in pentagrid space.
         """
         closest_value = math.inf
         closest = None
@@ -483,7 +560,7 @@ class Strip(object):
         return point1, point1 + (self.family.direction() * 1000)
 
     def intersection(self, other: 'Strip'):
-        """Returns the coordinates of the intersection between this strip and the given strip.
+        """Returns the coordinates of the intersection between this Strip and the given Strip.
 
         :param other: The strip to find the intersection with.
         :return: The coordinates in pentagrid space of the intersection between this strip and the given strip, or None
@@ -526,8 +603,18 @@ class RhombusVertex(object):
         :param coordinate: The coordinate of the vertex in rhombus space.
         :param lattice_coordinate: The lattice coordinate of the vertex.
         """
-        self.coordinate = coordinate
-        self.lattice_coordinate = lattice_coordinate
+        self._coordinate = coordinate
+        self._lattice_coordinate = lattice_coordinate
+
+    @property
+    def coordinate(self):
+        """The coordinate of the vertex in rhombus space."""
+        return self._coordinate
+
+    @property
+    def lattice_coordinate(self):
+        """The lattice coordinate of the vertex."""
+        return self._lattice_coordinate
 
     def __repr__(self):
         return "RhombusVertex(%s, %s)" % (self.coordinate, self.lattice_coordinate)
@@ -547,13 +634,28 @@ class Rhombus(object):
 
         Note that the order of the two strips does not matter.
 
-        :param strip1: The first strip of the pair of intersecting strips that defines this rhombus.
-        :param strip2: The second strip of the pair of intersecting strips that defines this rhombus.
+        :param strip1: One of the pair of intersecting strips that defines this rhombus.
+        :param strip2: The other of the pair of intersecting strips that defines this rhombus.
         :param lattice_coords: The lattice coordinates of the "maximal" vertex.
         """
-        self.strip1 = strip1
-        self.strip2 = strip2
-        self.lattice_coords = lattice_coords
+        self._strip1 = strip1
+        self._strip2 = strip2
+        self._lattice_coords = lattice_coords
+
+    @property
+    def strip1(self):
+        """One of the pair of intersecting strips that defines this rhombus."""
+        return self._strip1
+
+    @property
+    def strip2(self):
+        """The other of the pair of intersecting strips that defines this rhombus."""
+        return self._strip2
+
+    @property
+    def lattice_coords(self):
+        """The lattice coordinate of the "maximal" vertex."""
+        return self._lattice_coords
 
     def type(self):
         """Returns the RhombusType of this rhombus."""
@@ -655,7 +757,8 @@ class Tiling(object):
 
             If not provided, offsets will be generated randomly using rnd.
         :param rnd: A random number generator to use to generate the offsets. Only used if the offsets are not provided.
-        If not provided, a new Random instance will be created with the default seeding behavior.
+        If neither offsets nor rnd is not provided, a new Random instance will be created with the default seeding
+        behavior.
         """
         # TODO: check the offset constraints
         # TODO: normalize the offsets to [0, 1)

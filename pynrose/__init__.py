@@ -27,4 +27,4 @@ del pynrose
 __all__ = ["Tiling", "StripFamily", "Strip", "Rhombus", "RhombusType", "Grid", "GridCell", "PentAngle", "PentAngles",
            "Vector"]
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"

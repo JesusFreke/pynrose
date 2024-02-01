@@ -25,8 +25,9 @@ import argparse
 import math
 import random
 
-from pynrose import *
+import pynrose
 
+from pynrose import *
 
 def generate_svg(
         tiling: Tiling,
@@ -198,6 +199,7 @@ def main():
                             help="Add the grid bounding boxes to the svg.")
 
     parser.add_argument("--seed", "-s", type=int, help="The random seed to use to generate the tiling.")
+    parser.add_argument("--version", "-v", action="version", version=pynrose.__version__, help="Show the version and exit.")
 
     args = parser.parse_args()
 

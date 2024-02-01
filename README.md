@@ -41,6 +41,8 @@ To explore more of the options that are available, you can use --help or -?
 This also exposes an API that can be used to generate P3 penrose tilings programatically
 for any other use you may have.
 
+The API documentation can be found at https://pynrose.readthedocs.io
+
 ```python
 from pynrose import Tiling, Grid, Vector
 
@@ -58,6 +60,7 @@ The generation algorithm is based on the de Bruijn method, where there are 5 fam
 of equally spaced parallel lines, and each line intersection represents a
 rhombus in the penrose tiling.
 
-You can read more
-[here](https://www.mathpages.com/home/kmath621/kmath621.htm) and
-[here](http://www.ams.org/publicoutreach/feature-column/fcarc-ribbons)
+You can read more at
+
+* https://www.mathpages.com/home/kmath621/kmath621.htm
+* http://www.ams.org/publicoutreach/feature-column/fcarc-ribbons

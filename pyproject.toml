@@ -22,15 +22,17 @@ keywords = [
     "tiling",
     "de bruijn"
 ]
-cli-name = "pynrose.cli:main"
 dynamic = ["version"]
+
+[project.scripts]
+pynrose = "pynrose.cli:main"
 
 [tool.hatch.version]
 path = "pynrose/__init__.py"
 
 [project.urls]
 Homepage = "https://github.com/jesusfreke/pynrose"
-Issues = "https://github.com/jesusfreke/pynrose/issues"
+Documentation = "https://pynrose.readthedocs.io/"
 
 [tool.hatch.build.targets.sdist]
 include = [

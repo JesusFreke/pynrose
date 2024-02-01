@@ -260,7 +260,7 @@ class PentAngle(object):
         return PentAngle._INVERSE_SIN[(other.pentangle - self.pentangle) % 5]
 
     def cos(self, other: 'PentAngle' = None) -> float:
-        """Returns the cose of this pentangle, or of the angle between this pentangle and another pentangle."""
+        """Returns the cos of this pentangle, or of the angle between this pentangle and another pentangle."""
         if not other:
             return self._cos
         return PentAngle._COS[(other.pentangle - self.pentangle) % 5]

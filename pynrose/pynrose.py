@@ -448,7 +448,7 @@ class Strip(object):
         """Returns the Rhombus represented by the intersection of this Strip and the given Strip.
 
         :param other: The Strip to find the intersection with. Must not be from the same StripFamily as this Strip
-        (i.e. not parallel with this Strip).
+                      (i.e. not parallel with this Strip).
         """
         if other.family == self.family:
             raise ValueError("The strips don't intersect")
@@ -563,8 +563,9 @@ class Strip(object):
         """Returns the coordinates of the intersection between this Strip and the given Strip.
 
         :param other: The strip to find the intersection with.
+
         :return: The coordinates in pentagrid space of the intersection between this strip and the given strip, or None
-        if the strips are parallel.
+                 if the strips are parallel.
         """
         if self.family.pentangle == other.family.pentangle:
             return None

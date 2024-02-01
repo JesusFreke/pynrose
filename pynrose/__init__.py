@@ -21,6 +21,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from .pynrose import Tiling, StripFamily, Strip, Rhombus, RhombusType, Grid, GridCell, PentAngle, PentAngles, Vector
+from .pynrose import *
+del pynrose
+
+__all__ = ["Tiling", "StripFamily", "Strip", "Rhombus", "RhombusType", "Grid", "GridCell", "PentAngle", "PentAngles",
+           "Vector"]
 
 __version__ = "1.0.0"

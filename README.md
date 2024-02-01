@@ -16,9 +16,13 @@ The SVG mode outputs each rhombus as a separate closed path, with
 different styles applied to thick and thin rhombii. This is intended
 for visual/display applications.
 
+[![example svg output](docs/source/_static/svg.png)](docs/source/_static/svg.svg)
+
 The SVGLINE mode outputs each rhombus edge as a separate path, and
 ensures the edges are deduplicated, to avoid re-cutting/etching the
-same line multiple times, for CNC/laser etching types of applications. 
+same line multiple times, for CNC/laser etching types of applications.
+
+[![example svgline output](docs/source/_static/svgline.png)](docs/source/_static/svgline.svg)
 
 In both modes, the tiling can be split up into multiple smaller tilings
 that can be recombined with no overlaps or missing rhombii. This allows

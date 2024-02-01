@@ -1,9 +1,13 @@
-##### pynrose - P3 Penrose Tiling Generator
+# pynrose - P3 Penrose Tiling Generator
 
 This is a python library and stand-alone program to generate P3 penrose
 tilings.
 
-### Stand-alone program
+## Installation
+
+```pip install pynrose```
+
+## Stand-alone program
 
 As a stand-alone program, this is able to generate P3 penrose tilings
 to SVG. It supports a two modes of operation.
@@ -22,19 +26,35 @@ a tiling to be split up into multiple smaller parts, based on the
 constraints of the manufacturing process, and then assembled into a single
 large tiling.
 
-##### Getting started
-1. Download the ptgen.jar
-2. `java -jar ptgen.jar > tiling.svg` to generate a basic 10mm x 10mm tiling
-3. `java -jar ptgen-jar --help` to see what other options are available.
+## CLI Usage
 
-### Library
+To generate a random penrose tiling as an SVG 
 
-This also serves as a library that can be used to generate P3 penrose
-tilings for any other use you may have.
+```pynrose > tiling.svg```
 
+To explore more of the options that are available, you can use --help or -?
 
-##### Generation Algorithm
-The generation is based on the de Bruijn method, where there are 5 families
+```pynrose --help```
+
+## API Usage
+
+This also exposes an API that can be used to generate P3 penrose tilings programatically
+for any other use you may have.
+
+```python
+from pynrose import Tiling, Grid, Vector
+
+# generate a new tiling with random offsets
+tiling = Tiling()
+grid = Grid(Vector(0, 0), Vector(20, 20))
+
+# iterate over all rhombii whose midpoints are in the grid cell from (0, 0) to (20, 20)
+for rhombus in tiling.rhombii(grid.cell(0, 0)):
+    print(rhombus.vertices)
+```
+
+## Generation Algorithm
+The generation algorithm is based on the de Bruijn method, where there are 5 families
 of equally spaced parallel lines, and each line intersection represents a
 rhombus in the penrose tiling.
 

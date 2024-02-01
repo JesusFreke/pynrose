@@ -22,7 +22,7 @@ keywords = [
     "tiling",
     "de bruijn"
 ]
-cli-name = "pynrose.pynrose:main"
+cli-name = "pynrose.cli:main"
 dynamic = ["version"]
 
 [tool.hatch.version]
